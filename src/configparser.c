@@ -11,85 +11,6 @@
 
 static void destroy_config_entries(struct config_entry* start);
 
-// parse a single line of config
-// return 0 on successful parsing
-// if success, then the information about the key and the value
-// are passed to the caller
-// If the parsing was not successful then the function print to stderr
-// informations about the error and returns -1
-// If the line is empty (for an information standpoint) then the function
-// returns true and empty_line is set to true, otherwise empty_line is set
-// to false
-static int parse_line(
-    const char* line,
-    size_t len,
-    const unsigned int line_number,
-    ssize_t* key_start,
-    ssize_t* key_end,
-    ssize_t* value_start,
-    ssize_t* value_end,
-    bool* empty_line)
-{
-    *key_start = -1;
-    *key_end = -1;
-    *value_start = -1;
-    *value_end = -1;
-    // run a simple state machine to detect the key and the value of the config
-    // entry
-    enum {
-        INIT_WHITE,
-        KEY,
-        AFTER_KEY_WHITE,
-        VALUE,
-        DEAD
-    } state;
-    state = INIT_WHITE;
-
-    for (size_t i = 0; i <= len; ++i) {
-        switch (state) {
-        case INIT_WHITE:
-            if (!isspace(line[i]) && line[i] != '\0' && line[i] != '\n') {
-                state = KEY;
-                *key_start = i;
-            }
-            break;
-        case KEY:
-            if (line[i] == '=' || isspace(line[i])) {
-                state = AFTER_KEY_WHITE;
-                *key_end = i;
-            }
-            break;
-        case AFTER_KEY_WHITE:
-            if (line[i] != '=' && !isspace(line[i])) {
-                state = VALUE;
-                *value_start = i;
-            }
-            break;
-        case VALUE:
-            if (isspace(line[i]) || line[i] == '\0') {
-                *value_end = i;
-                state = DEAD;
-            }
-            break;
-        case DEAD:
-            break;
-        }
-    }
-
-    *empty_line = false;
-    if (state == INIT_WHITE) {
-        *empty_line = true;
-        return 0;
-    }
-
-    if (*key_start < 0 || *key_end < 0 || *value_start < 0 || *value_end < 0) {
-        fprintf(stderr, "configparser: syntax error on line\n%d | %s",
-            line_number, line);
-        return -1;
-    }
-    return 0;
-}
-
 static int insert_config_entry(struct config_t* config, char* key, char* value)
 {
     if (config->end == NULL) {
@@ -116,6 +37,79 @@ static int insert_config_entry(struct config_t* config, char* key, char* value)
         config->end = new_entry;
     }
     return 0;
+}
+
+// parse a single line of config
+// return 1 on successful parsing
+// if success, then the substrings of the key and the value
+// are passed to the caller
+// If the parsing was not successful then the function print to stderr
+// informations about the error and returns -1
+// If the line is empty (only whitespaces) then the function returns 0
+// key and value are pointers inside the region [line, line+len]
+// so no other memory is allocated/freed
+// line is modified, key and value are null terminated
+static int parse_line(char* line, size_t len,
+    const unsigned int line_number, char** key, char** value)
+{
+    // check if the line contains only white spaces i.e. spaces newline etc.
+    // if it is the case, then return 0
+    bool contains_only_whitespaces = true;
+    for (size_t i = 0; i < len; ++i) {
+        if (isspace(line[i]) == 0) {
+            contains_only_whitespaces = false;
+            break;
+        }
+    }
+    if (contains_only_whitespaces) {
+        return 0;
+    }
+
+    // create a backup line to output a meaningful error message,
+    // since the line will be modified by the strtok_r call below
+    char* line_backup = malloc(len * sizeof(char));
+    if (line_backup == NULL)
+        return -1;
+    strncpy(line_backup, line, len);
+
+    // parse three tokens with delimiters space, tab, newline and =
+    // this means that a line like "A B" is valid with key A and value B,
+    // some more precise parsing would be possible but
+    // for the sake of semplicity it is not implemented
+    char* strtok_state = NULL;
+
+    const char* delimiters = "\t\n =";
+    char* token1 = strtok_r(line, delimiters, &strtok_state);
+    if (token1 == NULL) {
+        fprintf(stderr, "configparser: syntax error on line\n%d | %s",
+            line_number, line_backup);
+        free(line_backup);
+        return -1;
+    }
+
+    char* token2 = strtok_r(NULL, delimiters, &strtok_state);
+    if (token2 == NULL) {
+        fprintf(stderr, "configparser: syntax error on line\n%d | %s",
+            line_number, line_backup);
+        free(line_backup);
+        return -1;
+    }
+    char* token3 = strtok_r(NULL, delimiters, &strtok_state);
+
+    if (token3 != NULL) {
+        fprintf(stderr, "configparser: syntax error on line\n%d | %s",
+            line_number, line_backup);
+        free(line_backup);
+        return -1;
+    }
+
+    // set the results to point to the first two tokens found and then return
+    *key = token1;
+    *value = token2;
+
+    free(line_backup);
+
+    return 1;
 }
 
 struct config_t* get_config_from_file(const char* file_path)
@@ -191,24 +185,26 @@ struct config_t* get_config_from_file(const char* file_path)
 
         // parse the line. If the line is empty then skip it
         // if the parsing failed, then return NULL
-        ssize_t key_start, key_end, value_start, value_end;
-        bool empty_line;
         const size_t len = strnlen(buf, buffer_size);
 
-        int line_parse_res = parse_line(buf, len, line_number,
-            &key_start, &key_end, &value_start, &value_end, &empty_line);
+        char* key_ptr;
+        char* value_ptr;
+        int line_parse_res = parse_line(buf, len, line_number, &key_ptr, &value_ptr);
         if (line_parse_res == -1) {
             free(buf);
             destroy_config_entries(config.start);
             fclose(fp);
             return NULL;
-        }
-        if (empty_line)
+        } else if (line_parse_res == 0) {
+            // skip empty lines
             continue;
+        }
 
         // allocate the key and value strings.
-        const size_t key_len = key_end - key_start;
-        const size_t value_len = value_end - value_start;
+        // parse_line guarantees that key_ptr and value_ptr are null terminated
+        // so we can safely use strlen
+        const size_t key_len = strlen(key_ptr);
+        const size_t value_len = strlen(value_ptr);
         char* key = malloc(sizeof(char) * (key_len + 1));
         char* value = malloc(sizeof(char) * (value_len + 1));
         if (key == NULL || value == NULL) {
@@ -223,10 +219,8 @@ struct config_t* get_config_from_file(const char* file_path)
         }
 
         // copy the key and the value strings in their final buffer
-        strncpy(key, buf + key_start, key_len);
-        key[key_len] = '\0';
-        strncpy(value, buf + value_start, value_len);
-        value[value_len] = '\0';
+        strncpy(key, key_ptr, key_len + 1);
+        strncpy(value, value_ptr, value_len + 1);
 
         // insert the config pair in the linked list.
         int insert_res = insert_config_entry(&config, key, value);
