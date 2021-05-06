@@ -53,3 +53,6 @@ dkms.conf
 
 # compilation outputs
 bin/*
+
+# editor folders
+.vscode/*
