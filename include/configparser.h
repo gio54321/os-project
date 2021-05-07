@@ -1,8 +1,6 @@
 #ifndef CONFIGPARSER_H
 #define CONFIGPARSER_H
 
-#include <stdio.h>
-
 typedef struct config_s config_t;
 
 config_t* get_config_from_file(const char* file_path);
