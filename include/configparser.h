@@ -12,11 +12,14 @@ struct config_entry {
 struct config_t {
     struct config_entry* start;
     struct config_entry* end;
+    struct config_entry* curr;
 };
 
 struct config_t* get_config_from_file(const char* file_path);
 
 void print_config(const struct config_t* config);
+
+int config_get_next_entry(struct config_t* config, char** key, char** value);
 
 void destroy_config(struct config_t* config);
 

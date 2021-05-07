@@ -247,6 +247,7 @@ struct config_t* get_config_from_file(const char* file_path)
     }
     result->start = config.start;
     result->end = config.end;
+    result->curr = config.start;
     return result;
 }
 
@@ -256,6 +257,17 @@ void print_config(const struct config_t* config)
     for (struct config_entry* p = config->start; p != NULL; p = p->next) {
         printf("%s -> %s\n", p->key, p->value);
     }
+}
+
+int config_get_next_entry(struct config_t* config, char** key, char** value)
+{
+    if (config->curr == NULL) {
+        return 0;
+    }
+    *key = config->curr->key;
+    *value = config->curr->value;
+    config->curr = config->curr->next;
+    return 1;
 }
 
 static void destroy_config_entries(struct config_entry* start)
