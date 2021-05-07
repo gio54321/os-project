@@ -14,7 +14,7 @@ void* producer(void* arg)
     unsigned int rand_state = time(NULL);
     int t = rand_r(&rand_state);
     for (int i = 0; i < num_items; ++i) {
-        usbuf_put(buf, NULL);
+        assert(usbuf_put(buf, &num_items) == 0);
         usleep(((double)t / RAND_MAX) * 1000);
     }
     return NULL;
@@ -25,7 +25,7 @@ void* consumer(void* arg)
     unsigned int rand_state = time(NULL);
     int t = rand_r(&rand_state);
     for (int i = 0; i < num_items; ++i) {
-        usbuf_get(buf);
+        assert(usbuf_get(buf) == &num_items);
         usleep(((double)t / RAND_MAX) * 1000);
     }
     return NULL;
@@ -49,7 +49,7 @@ void concurrent_test(unsigned int num_producers, unsigned int num_consumers, uns
     for (int i = 0; i < num_consumers; ++i) {
         pthread_join(consumers_tids[i], NULL);
     }
-    usbuf_free(buf);
+    assert(usbuf_free(buf) == 0);
 }
 
 int main(void)
