@@ -79,6 +79,12 @@ int usbuf_put(usbuf_t* buf, void* item)
             buf->end = new_node;
         }
     }
+
+    int signal_res = pthread_cond_signal(&buf->not_anymore_empty);
+    if (signal_res != 0) {
+        return -1;
+    }
+
     int unlock_res = pthread_mutex_unlock(&buf->mutex);
     if (unlock_res != 0) {
         return -1;
