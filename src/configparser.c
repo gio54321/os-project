@@ -9,7 +9,20 @@
 
 #define INITIAL_BUF_LEN 3
 
-static void destroy_config_entries(struct config_entry* start);
+struct config_entry {
+    char* key;
+    char* value;
+    struct config_entry* next;
+};
+
+struct config_s {
+    struct config_entry* start;
+    struct config_entry* end;
+    struct config_entry* curr;
+};
+
+static void
+destroy_config_entries(struct config_entry* start);
 
 static int insert_config_entry(config_t* config, char* key, char* value)
 {

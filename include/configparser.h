@@ -3,17 +3,7 @@
 
 #include <stdio.h>
 
-struct config_entry {
-    char* key;
-    char* value;
-    struct config_entry* next;
-};
-
-typedef struct config_s {
-    struct config_entry* start;
-    struct config_entry* end;
-    struct config_entry* curr;
-} config_t;
+typedef struct config_s config_t;
 
 config_t* get_config_from_file(const char* file_path);
 
