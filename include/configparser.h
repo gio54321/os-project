@@ -9,18 +9,18 @@ struct config_entry {
     struct config_entry* next;
 };
 
-struct config_t {
+typedef struct config_s {
     struct config_entry* start;
     struct config_entry* end;
     struct config_entry* curr;
-};
+} config_t;
 
-struct config_t* get_config_from_file(const char* file_path);
+config_t* get_config_from_file(const char* file_path);
 
-void print_config(const struct config_t* config);
+void print_config(const config_t* config);
 
-int config_get_next_entry(struct config_t* config, char** key, char** value);
+int config_get_next_entry(config_t* config, char** key, char** value);
 
-void destroy_config(struct config_t* config);
+void destroy_config(config_t* config);
 
 #endif

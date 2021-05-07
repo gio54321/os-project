@@ -11,7 +11,7 @@
 
 static void destroy_config_entries(struct config_entry* start);
 
-static int insert_config_entry(struct config_t* config, char* key, char* value)
+static int insert_config_entry(config_t* config, char* key, char* value)
 {
     if (config->end == NULL) {
         struct config_entry* new_entry = malloc(sizeof(struct config_entry));
@@ -112,7 +112,7 @@ static int parse_line(char* line, size_t len,
     return 1;
 }
 
-struct config_t* get_config_from_file(const char* file_path)
+config_t* get_config_from_file(const char* file_path)
 {
     // try to open the file specified by file_path,
     // if it fails print the reason to stderr and return NULL
@@ -133,7 +133,7 @@ struct config_t* get_config_from_file(const char* file_path)
         return NULL;
     }
 
-    struct config_t config;
+    config_t config;
     config.end = NULL;
     config.start = NULL;
 
@@ -240,7 +240,7 @@ struct config_t* get_config_from_file(const char* file_path)
     fclose(fp);
     // allocate and initialize the final struct
     // that will be returned to the caller
-    struct config_t* result = malloc(sizeof(struct config_t));
+    config_t* result = malloc(sizeof(config_t));
     if (result == NULL) {
         destroy_config_entries(config.start);
         return NULL;
@@ -252,14 +252,14 @@ struct config_t* get_config_from_file(const char* file_path)
 }
 
 // prints the key-value pairs contained in config
-void print_config(const struct config_t* config)
+void print_config(const config_t* config)
 {
     for (struct config_entry* p = config->start; p != NULL; p = p->next) {
         printf("%s -> %s\n", p->key, p->value);
     }
 }
 
-int config_get_next_entry(struct config_t* config, char** key, char** value)
+int config_get_next_entry(config_t* config, char** key, char** value)
 {
     if (config->curr == NULL) {
         return 0;
@@ -281,7 +281,7 @@ static void destroy_config_entries(struct config_entry* start)
     }
 }
 
-void destroy_config(struct config_t* config)
+void destroy_config(config_t* config)
 {
     destroy_config_entries(config->start);
     free(config);

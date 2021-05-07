@@ -5,7 +5,7 @@
 
 int main(void)
 {
-    struct config_t* config;
+    config_t* config;
     config = get_config_from_file("tests/example_config.txt");
 
     char *key, *value;
