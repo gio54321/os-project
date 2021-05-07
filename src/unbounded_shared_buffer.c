@@ -108,6 +108,9 @@ void* usbuf_get(usbuf_t* buf)
     void* res = buf->start->data;
     struct node* to_be_removed_node = buf->start;
     buf->start = buf->start->next;
+    if (buf->start == NULL) {
+        buf->end = NULL;
+    }
     free(to_be_removed_node);
     int unlock_res = pthread_mutex_unlock(&buf->mutex);
     if (unlock_res != 0) {
