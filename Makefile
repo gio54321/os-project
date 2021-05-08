@@ -10,13 +10,16 @@ CFLAGS = -Wall -pedantic -std=gnu17 \
 LIBS = -lpthread
 
 _OBJ = configparser unbounded_shared_buffer
-OBJ = $(patsubst %,$(OBJDIR)/%,$(_OBJ).o)
+OBJ = $(patsubst %,$(OBJDIR)/%.o,$(_OBJ))
 TESTS = $(patsubst %,$(BINDIR)/%_test,$(_OBJ))
 RUNTESTS = $(patsubst %,run_%_test,$(_OBJ))
 
-.PHONY: all tests run-tests
+.PHONY: all tests run-tests clean
 
 all: $(OBJ)
+
+clean:
+	rm -f $(OBJ) $(TESTS)
 
 run-tests: tests $(RUNTESTS)
 tests: $(TESTS)
