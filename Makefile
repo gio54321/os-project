@@ -38,4 +38,5 @@ $(TESTS): $(BINDIR)/%_test: $(TESTDIR)/%_test.c $(OBJDIR)/%.o
 # the test fails if the test process returns a nonzero value or valgrind detects any leak
 $(RUNTESTS): run_%_test: $(BINDIR)/%_test
 	@echo "--> running test $<"
-	@(valgrind --quiet --leak-check=full --error-exitcode=1 $< && echo "TEST PASSED") || echo "TEST FAILED"
+	@(valgrind --quiet --leak-check=full --error-exitcode=1 $< && (tput setaf 2; echo "TEST PASSED")) || (tput setaf 1; echo "TEST FAILED")
+	@tput setaf 7
