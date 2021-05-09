@@ -15,6 +15,7 @@ struct usbuf_s {
     buf_policy policy;
     pthread_mutex_t mutex;
     pthread_cond_t not_anymore_empty;
+    int closed;
 };
 
 // Create an unbounded shared buffer with given policy.
@@ -43,6 +44,7 @@ usbuf_t* usbuf_create(buf_policy policy)
     buf->policy = policy;
     buf->start = NULL;
     buf->end = NULL;
+    buf->closed = 0;
     int init_res = pthread_mutex_init(&buf->mutex, NULL);
     if (init_res != 0) {
         free(buf);
@@ -62,7 +64,8 @@ usbuf_t* usbuf_create(buf_policy policy)
 
 // Put an element in the shared buffer.
 // This operation is always non-blocking.
-// The function returns 0 on successful insertion, otherwise it returns -1.
+// The function returns 0 on successful insertion, -2 on buffer closed,
+// otherwise it returns -1.
 // if the function returns -1 something very bad happened (e.g. the internal
 // mutex failed to lock/unlock) and the buffer shall be considered corrupted.
 // any operation after -1 is returned shall be considered U.B.
@@ -73,6 +76,13 @@ int usbuf_put(usbuf_t* buf, void* item)
         return -1;
     }
 
+    if (buf->closed) {
+        int unlock_res = pthread_mutex_unlock(&buf->mutex);
+        if (unlock_res != 0) {
+            return -1;
+        }
+        return -2;
+    }
     // create the new node
     struct node* new_node = malloc(sizeof(struct node));
     if (new_node == NULL) {
@@ -122,28 +132,44 @@ int usbuf_put(usbuf_t* buf, void* item)
 
 // Put an element in the shared buffer.
 // If the buffer is empty, then the calls blocks until there is an element available.
-// The function returns the pointer of the item on successful extraction,
-// otherwise it returns NULL.
-// if the function returns NULL something very bad happened (e.g. the internal
+// The function returns 0 on successful extraction, and the address of the item is
+// put in res, it returns -2 on buffer closed, otherwise it returns -1
+// if the function returns -2 it is guaranteed that the buffer is empty
+// if the function returns -1 something very bad happened (e.g. the internal
 // mutex failed to lock/unlock) and the buffer shall be considered corrupted.
 // any operation after NULL is returned shall be considered U.B.
-void* usbuf_get(usbuf_t* buf)
+int usbuf_get(usbuf_t* buf, void** res)
 {
     int lock_res = pthread_mutex_lock(&buf->mutex);
     if (lock_res != 0) {
-        return NULL;
+        return -1;
+    }
+
+    if (buf->closed && buf->start == NULL) {
+        int unlock_res = pthread_mutex_unlock(&buf->mutex);
+        if (unlock_res != 0) {
+            return -1;
+        }
+        return -2;
     }
 
     // wait for the buffer to become non-empty
     while (buf->start == NULL) {
         int wait_res = pthread_cond_wait(&buf->not_anymore_empty, &buf->mutex);
         if (wait_res != 0) {
-            return NULL;
+            return -1;
+        }
+        if (buf->closed) {
+            int unlock_res = pthread_mutex_unlock(&buf->mutex);
+            if (unlock_res != 0) {
+                return -1;
+            }
+            return -2;
         }
     }
 
     // remove the stating node
-    void* res = buf->start->data;
+    *res = buf->start->data;
     struct node* to_be_removed_node = buf->start;
     buf->start = buf->start->next;
     if (buf->start == NULL) {
@@ -153,10 +179,39 @@ void* usbuf_get(usbuf_t* buf)
 
     int unlock_res = pthread_mutex_unlock(&buf->mutex);
     if (unlock_res != 0) {
-        return NULL;
+        return -1;
+    }
+    return 0;
+}
+
+// Close the buffer
+// any usbuf_put after the buffer is closed returns with a buffer closed error
+// wake up any eventual threads that are blocked on usbuf_get
+// every usbuf_get is valid until the buffer is not empty.
+// once the buffer becomes empty usbus_get returns a closed buffer error
+// this function can be safely called when the buffer is still shared between threads
+// the common pattern is to call usbuf_close when all the producers returned,
+// so the consumers will finish to extract all the elements from the buffer
+// and then they will return on buffer closed error
+int usbuf_close(usbuf_t* buf)
+{
+    int lock_res = pthread_mutex_lock(&buf->mutex);
+    if (lock_res != 0) {
+        return -1;
     }
 
-    return res;
+    buf->closed = 1;
+
+    int broadcast_res = pthread_cond_broadcast(&buf->not_anymore_empty);
+    if (broadcast_res == -1) {
+        return -1;
+    }
+
+    int unlock_res = pthread_mutex_unlock(&buf->mutex);
+    if (unlock_res != 0) {
+        return -1;
+    }
+    return 0;
 }
 
 // free the shared buffer buf
