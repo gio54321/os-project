@@ -9,7 +9,7 @@ CFLAGS = -Wall -pedantic -std=gnu17 \
 		-I$(IDIR) -g 
 LIBS = -lpthread
 
-_OBJ = configparser unbounded_shared_buffer
+_OBJ = configparser unbounded_shared_buffer protocol
 OBJ = $(patsubst %,$(OBJDIR)/%.o,$(_OBJ))
 TESTS = $(patsubst %,$(BINDIR)/%_test,$(_OBJ))
 RUNTESTS = $(patsubst %,run_%_test,$(_OBJ))
@@ -29,6 +29,9 @@ $(OBJDIR)/configparser.o: $(SRCDIR)/configparser.c $(IDIR)/configparser.h
 
 $(OBJDIR)/unbounded_shared_buffer.o: $(SRCDIR)/unbounded_shared_buffer.c $(IDIR)/unbounded_shared_buffer.h
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
+
+$(OBJDIR)/protocol.o: $(SRCDIR)/protocol.c $(IDIR)/protocol.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # generic rule for all tests
 $(TESTS): $(BINDIR)/%_test: $(TESTDIR)/%_test.c $(OBJDIR)/%.o
