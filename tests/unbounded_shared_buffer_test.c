@@ -6,6 +6,8 @@
 
 #include "unbounded_shared_buffer.h"
 
+#define DO_CONCURRENCY_TESTS 0
+
 unsigned int num_items;
 usbuf_t* buf;
 
@@ -98,18 +100,20 @@ int main(void)
     assert(res == &a);
     usbuf_free(local_buf);
 
-    printf("running concurrency tests (this may take a while)...\n");
-    concurrent_test(1, 1, 50, LIFO_POLICY);
-    concurrent_test(2, 2, 50, LIFO_POLICY);
-    concurrent_test(5, 5, 50, LIFO_POLICY);
-    concurrent_test(30, 30, 50, LIFO_POLICY);
-    concurrent_test(30, 5, 50, LIFO_POLICY);
-    concurrent_test(5, 30, 50, LIFO_POLICY);
+    if (DO_CONCURRENCY_TESTS) {
+        printf("running concurrency tests (this may take a while)...\n");
+        concurrent_test(1, 1, 50, LIFO_POLICY);
+        concurrent_test(2, 2, 50, LIFO_POLICY);
+        concurrent_test(5, 5, 50, LIFO_POLICY);
+        concurrent_test(30, 30, 50, LIFO_POLICY);
+        concurrent_test(30, 5, 50, LIFO_POLICY);
+        concurrent_test(5, 30, 50, LIFO_POLICY);
 
-    concurrent_test(1, 1, 50, FIFO_POLICY);
-    concurrent_test(2, 2, 50, FIFO_POLICY);
-    concurrent_test(5, 5, 50, FIFO_POLICY);
-    concurrent_test(30, 30, 50, FIFO_POLICY);
-    concurrent_test(30, 5, 50, FIFO_POLICY);
-    concurrent_test(5, 30, 50, FIFO_POLICY);
+        concurrent_test(1, 1, 50, FIFO_POLICY);
+        concurrent_test(2, 2, 50, FIFO_POLICY);
+        concurrent_test(5, 5, 50, FIFO_POLICY);
+        concurrent_test(30, 30, 50, FIFO_POLICY);
+        concurrent_test(30, 5, 50, FIFO_POLICY);
+        concurrent_test(5, 30, 50, FIFO_POLICY);
+    }
 }
