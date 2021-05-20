@@ -29,15 +29,15 @@
         | DATA (1) | data_size (8) | data (data_size) |
         -----------------------------------------------
 
-    - FILE: the packet contains a file
+    - FILE_P: the packet contains a file
         The first 8 bytes (interpreted as an unsigned long) are the filename size.
         Then name_length bytes represent the name of the file represented as a
         *not null terminated* sequence of characters
         Then 8 bytes (interpreted as an unsigned long) are the data size.
         Then data_size bytes represent the actual data contained in the file.
-        ------------------------------------------------------------------------------------------
-        | FILE (1) | name_length (8) | filename (name_length) | data_size (8) | data (data_size) |
-        ------------------------------------------------------------------------------------------
+        --------------------------------------------------------------------------------------------
+        | FILE_P (1) | name_length (8) | filename (name_length) | data_size (8) | data (data_size) |
+        --------------------------------------------------------------------------------------------
     
     - FILE_SEQUENCE: this packet indicates that will be sent multiple files as separate packets
         The first 8 bytes (interpreted as an unsigned long) indicates how many files
@@ -99,11 +99,12 @@
 #include <stdlib.h>
 
 enum opcodes {
+    NIL, // <- for representing an invalid packet
     COMP,
     ACK,
     ERROR,
     DATA,
-    FILE,
+    FILE_P,
     FILE_SEQUENCE,
     OPEN_FILE,
     CLOSE_FILE,
@@ -113,27 +114,23 @@ enum opcodes {
     UNLOCK_FILE
 };
 
-int send_comp(int fd);
-int send_ack(int fd);
-int send_error(int fd, char ecode);
-int send_data(int fd, size_t size, void* data);
-int send_file(int fd, size_t filename_len, const char* filename, size_t data_len, void* data);
-int send_file_sequence(int fd, unsigned long count);
-int send_open_file(int fd, size_t filename_len, const char* filename);
-int send_close_file(int fd, size_t filename_len, const char* filename);
-int send_read_file(int fd, size_t filename_len, const char* filename);
-int send_append_to_file(int fd, size_t filename_len, const char* filename);
-int send_lock_file(int fd, size_t filename_len, const char* filename);
-int send_unlock_file(int fd, size_t filename_len, const char* filename);
+enum flags {
+    O_CREATE = 1,
+    O_LOCK = 2
+};
 
-int receive_opcode(int fd, int* opcode);
-int receive_error(int fd, char* ecode);
-int receive_data(int fd, size_t* size, void** data);
-int receive_file(int fd, size_t* filename_len, char** filename, size_t* data_len, void** data);
-int receive_file_sequence(int fd, unsigned long* count);
-int receive_open_file(int fd, size_t* filename_len, char** filename);
-int receive_close_file(int fd, size_t* filename_len, char** filename);
-int receive_read_file(int fd, size_t* filename_len, char** filename);
-int receive_append_to_file(int fd, size_t* filename_len, char** filename);
-int receive_lock_file(int fd, size_t* filename_len, char** filename);
-int receive_unlock_file(int fd, size_t* filename_len, char** filename);
+struct packet {
+    char op;
+    char err_code;
+    u_int64_t name_length;
+    char* filename;
+    u_int64_t data_size;
+    void* data;
+    char flags;
+    u_int64_t count;
+};
+
+int clear_packet(struct packet* packet);
+ssize_t send_packet(int fd, struct packet* packet);
+int receive_packet(int fd, struct packet* res_packet);
+int destroy_packet(struct packet* packet);
