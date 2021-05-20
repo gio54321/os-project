@@ -96,6 +96,9 @@
         --------------------------------------------------------------
 */
 
+#ifndef PROTOCOL_H
+#define PROTOCOL_H
+
 #include <stdlib.h>
 
 enum opcodes {
@@ -134,3 +137,4 @@ int clear_packet(struct packet* packet);
 ssize_t send_packet(int fd, struct packet* packet);
 int receive_packet(int fd, struct packet* res_packet);
 int destroy_packet(struct packet* packet);
+#endif
