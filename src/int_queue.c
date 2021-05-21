@@ -61,6 +61,9 @@ int int_queue_get(int_queue_t* queue, int* value)
     *value = queue->start->data;
     struct node* rm_node = queue->start;
     queue->start = queue->start->next;
+    if (queue->start == NULL) {
+        queue->end = NULL;
+    }
     free(rm_node);
     return 1;
 }
