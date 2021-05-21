@@ -27,6 +27,10 @@ int main()
     assert(int_queue_get(queue, &value) == 0);
     assert(int_queue_get(queue, &value) == 0);
 
+    assert(int_queue_put(queue, 42) == 0);
+    assert(int_queue_put(queue, 42) == 0);
+    assert(int_queue_put(queue, 42) == 0);
+
     assert(int_queue_free(queue) == 0);
     return 0;
 }
