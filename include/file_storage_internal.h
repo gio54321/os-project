@@ -81,6 +81,8 @@ int unlock_file_storage(file_storage_t* storage);
  * Add a vfile to a file storage.
  * It is up to the caller to ensure that a file with the same filename does not
  * already exists in the storage.
+ * Also it is up to the caller to ensure that the file pointed by vfile is not
+ * already present in the storage.
  * The file is not copyed, but instead is simply inserted inside the storage.
  * In a way, the storage takes 'ownership' of the file, so iits fields next and prev
  * shall not be modified by the user.
