@@ -24,7 +24,7 @@ RUNCTESTS = $(patsubst %,run_%_ctest,$(CONCURRENT_OBJ))
 all: $(OBJ)
 
 clean:
-	rm -f $(OBJ) $(TESTS)
+	rm -f $(OBJ) $(TESTS) $(CTESTS)
 
 run-all-tests: run-tests run-ctests
 run-tests: tests $(RUNTESTS)
