@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 #include "protocol.h"
+#include "utils.h"
 
 int clear_packet(struct packet* packet)
 {
@@ -46,75 +47,75 @@ ssize_t send_packet(int fd, struct packet* packet)
         return -1;
 
     case COMP:
-        write_res = write(fd, &packet->op, 1);
+        write_res = writen(fd, &packet->op, 1);
         return write_res;
 
     case ACK:
-        write_res = write(fd, &packet->op, 1);
+        write_res = writen(fd, &packet->op, 1);
         return write_res;
 
     case ERROR:
-        write_res = write(fd, &packet->op, 1);
+        write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, &packet->err_code, 1);
+        write_res = writen(fd, &packet->err_code, 1);
         return write_res;
 
     case DATA:
-        write_res = write(fd, &packet->op, 1);
+        write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, &packet->data_size, 8);
+        write_res = writen(fd, &packet->data_size, 8);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, packet->data, packet->data_size);
+        write_res = writen(fd, packet->data, packet->data_size);
         return write_res;
 
     case FILE_P:
-        write_res = write(fd, &packet->op, 1);
+        write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, &packet->name_length, 8);
+        write_res = writen(fd, &packet->name_length, 8);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, packet->filename, packet->name_length);
+        write_res = writen(fd, packet->filename, packet->name_length);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, &packet->data_size, 8);
+        write_res = writen(fd, &packet->data_size, 8);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, packet->data, packet->data_size);
+        write_res = writen(fd, packet->data, packet->data_size);
         return write_res;
 
     case FILE_SEQUENCE:
-        write_res = write(fd, &packet->op, 1);
+        write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, &packet->count, 8);
+        write_res = writen(fd, &packet->count, 8);
         return write_res;
 
     case OPEN_FILE:
-        write_res = write(fd, &packet->op, 1);
+        write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, &packet->name_length, 8);
+        write_res = writen(fd, &packet->name_length, 8);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, packet->filename, packet->name_length);
+        write_res = writen(fd, packet->filename, packet->name_length);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, &packet->flags, 1);
+        write_res = writen(fd, &packet->flags, 1);
         return write_res;
 
     case CLOSE_FILE:
@@ -122,15 +123,15 @@ ssize_t send_packet(int fd, struct packet* packet)
     case APPEND_TO_FILE:
     case LOCK_FILE:
     case UNLOCK_FILE:
-        write_res = write(fd, &packet->op, 1);
+        write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, &packet->name_length, 8);
+        write_res = writen(fd, &packet->name_length, 8);
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = write(fd, packet->filename, packet->name_length);
+        write_res = writen(fd, packet->filename, packet->name_length);
         return write_res;
     }
     return -1;
@@ -143,7 +144,7 @@ int receive_packet(int fd, struct packet* res_packet)
         return -1;
     }
 
-    ssize_t read_res = read(fd, &res_packet->op, 1);
+    ssize_t read_res = readn(fd, &res_packet->op, 1);
     if (read_res <= 0) {
         return read_res;
     }
@@ -159,11 +160,11 @@ int receive_packet(int fd, struct packet* res_packet)
         return read_res;
 
     case ERROR:
-        read_res = read(fd, &res_packet->err_code, 1);
+        read_res = readn(fd, &res_packet->err_code, 1);
         return read_res;
 
     case DATA:
-        read_res = read(fd, &res_packet->data_size, 8);
+        read_res = readn(fd, &res_packet->data_size, 8);
         if (read_res <= 0) {
             return read_res;
         }
@@ -173,11 +174,11 @@ int receive_packet(int fd, struct packet* res_packet)
             errno = ENOMEM;
             return -1;
         }
-        read_res = read(fd, res_packet->data, res_packet->data_size);
+        read_res = readn(fd, res_packet->data, res_packet->data_size);
         return read_res;
 
     case FILE_P:
-        read_res = read(fd, &res_packet->name_length, 8);
+        read_res = readn(fd, &res_packet->name_length, 8);
         if (read_res <= 0) {
             return read_res;
         }
@@ -186,12 +187,12 @@ int receive_packet(int fd, struct packet* res_packet)
             errno = ENOMEM;
             return -1;
         }
-        read_res = read(fd, res_packet->filename, res_packet->name_length);
+        read_res = readn(fd, res_packet->filename, res_packet->name_length);
         if (read_res <= 0) {
             return read_res;
         }
         res_packet->filename[res_packet->name_length] = '\0';
-        read_res = read(fd, &res_packet->data_size, 8);
+        read_res = readn(fd, &res_packet->data_size, 8);
         if (read_res <= 0) {
             return read_res;
         }
@@ -201,15 +202,15 @@ int receive_packet(int fd, struct packet* res_packet)
             errno = ENOMEM;
             return -1;
         }
-        read_res = read(fd, res_packet->data, res_packet->data_size);
+        read_res = readn(fd, res_packet->data, res_packet->data_size);
         return read_res;
 
     case FILE_SEQUENCE:
-        read_res = read(fd, &res_packet->count, 8);
+        read_res = readn(fd, &res_packet->count, 8);
         return read_res;
 
     case OPEN_FILE:
-        read_res = read(fd, &res_packet->name_length, 8);
+        read_res = readn(fd, &res_packet->name_length, 8);
         if (read_res <= 0) {
             return read_res;
         }
@@ -218,12 +219,12 @@ int receive_packet(int fd, struct packet* res_packet)
             errno = ENOMEM;
             return -1;
         }
-        read_res = read(fd, res_packet->filename, res_packet->name_length);
+        read_res = readn(fd, res_packet->filename, res_packet->name_length);
         if (read_res <= 0) {
             return read_res;
         }
         res_packet->filename[res_packet->name_length] = '\0';
-        read_res = read(fd, &res_packet->flags, 1);
+        read_res = readn(fd, &res_packet->flags, 1);
         return read_res;
 
     case CLOSE_FILE:
@@ -231,7 +232,7 @@ int receive_packet(int fd, struct packet* res_packet)
     case APPEND_TO_FILE:
     case LOCK_FILE:
     case UNLOCK_FILE:
-        read_res = read(fd, &res_packet->name_length, 8);
+        read_res = readn(fd, &res_packet->name_length, 8);
         if (read_res <= 0) {
             return read_res;
         }
@@ -241,7 +242,7 @@ int receive_packet(int fd, struct packet* res_packet)
             return -1;
         }
         res_packet->filename[res_packet->name_length] = '\0';
-        read_res = read(fd, res_packet->filename, res_packet->name_length);
+        read_res = readn(fd, res_packet->filename, res_packet->name_length);
         return read_res;
     }
     return -1;

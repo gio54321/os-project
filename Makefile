@@ -38,7 +38,7 @@ $(OBJDIR)/configparser.o: $(SRCDIR)/configparser.c $(IDIR)/configparser.h
 $(OBJDIR)/unbounded_shared_buffer.o: $(SRCDIR)/unbounded_shared_buffer.c $(IDIR)/unbounded_shared_buffer.h
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
-$(OBJDIR)/protocol.o: $(SRCDIR)/protocol.c $(IDIR)/protocol.h
+$(OBJDIR)/protocol.o: $(SRCDIR)/protocol.c $(IDIR)/protocol.h $(OBJDIR)/utils.o
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/int_queue.o: $(SRCDIR)/int_queue.c $(IDIR)/int_queue.h
