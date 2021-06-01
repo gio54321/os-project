@@ -3,6 +3,18 @@
 
 #include <unistd.h>
 
+#define DIE_NEG1(code, name) \
+    if ((code) == -1) {      \
+        perror(name);        \
+        exit(EXIT_FAILURE);  \
+    }
+
+#define DIE_NULL(code, name) \
+    if ((code) == NULL) {    \
+        perror(name);        \
+        exit(EXIT_FAILURE);  \
+    }
+
 /**
  * Read n bytes from the file descriptor fd
  * this function returns the number of bytes read, but it is guaranteed that if
