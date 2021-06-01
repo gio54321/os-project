@@ -71,6 +71,13 @@
         | READ_FILE (1) | name_length (8) | filename (name_length) |
         ------------------------------------------------------------
     
+    - READ_N_FILES:the packet contains a request of reading n files at random.
+        The first 8 bytes (interpreted as an unsigned long) indicates how many files
+        the client is requesting
+        --------------------------------
+        | READ_N_FILES (1) | count (8) |
+        --------------------------------
+
     - APPEND_TO_FILE the packet contains a request to append to a file some data
         The first 8 bytes (interpreted as an unsigned long) are the filename size.
         Then name_length bytes represent the name of the file represented as a
@@ -112,6 +119,7 @@ enum opcodes {
     OPEN_FILE,
     CLOSE_FILE,
     READ_FILE,
+    READ_N_FILES,
     APPEND_TO_FILE,
     LOCK_FILE,
     UNLOCK_FILE

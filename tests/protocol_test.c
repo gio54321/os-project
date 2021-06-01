@@ -92,6 +92,16 @@ int main(void)
     assert(recv.op == FILE_SEQUENCE);
     assert(recv.count == 42);
 
+    // TEST READ_N_FILES
+    clear_packet(&send);
+    clear_packet(&recv);
+    send.op = READ_N_FILES;
+    send.count = 42;
+    assert(send_packet(fds[1], &send) > 0);
+    assert(receive_packet(fds[0], &recv) > 0);
+    assert(recv.op == READ_N_FILES);
+    assert(recv.count == 42);
+
     // TEST OPEN_FILE
     clear_packet(&send);
     clear_packet(&recv);

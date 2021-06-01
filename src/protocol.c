@@ -117,6 +117,7 @@ ssize_t send_packet(int fd, struct packet* packet)
         return write_res;
 
     case FILE_SEQUENCE:
+    case READ_N_FILES:
         write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
             return write_res;
@@ -238,6 +239,7 @@ int receive_packet(int fd, struct packet* res_packet)
         return read_res;
 
     case FILE_SEQUENCE:
+    case READ_N_FILES:
         read_res = readn(fd, &res_packet->count, 8);
         return read_res;
 
