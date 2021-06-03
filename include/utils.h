@@ -9,6 +9,12 @@
         exit(EXIT_FAILURE);  \
     }
 
+#define DIE_NEG(code, name) \
+    if ((code) < 0) {       \
+        perror(name);       \
+        exit(EXIT_FAILURE); \
+    }
+
 #define DIE_NULL(code, name) \
     if ((code) == NULL) {    \
         perror(name);        \
