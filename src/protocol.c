@@ -69,10 +69,8 @@ ssize_t send_packet(int fd, struct packet* packet)
         return -1;
 
     case COMP:
-        write_res = writen(fd, &packet->op, 1);
-        return write_res;
-
     case ACK:
+    case CLOSE_CONNECTION:
         write_res = writen(fd, &packet->op, 1);
         return write_res;
 
@@ -190,6 +188,7 @@ int receive_packet(int fd, struct packet* res_packet)
 
     case COMP:
     case ACK:
+    case CLOSE_CONNECTION:
         return read_res;
 
     case ERROR:

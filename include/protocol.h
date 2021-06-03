@@ -13,6 +13,7 @@ enum opcodes {
     COMP,
     ACK,
     ERROR,
+    CLOSE_CONNECTION,
     DATA,
     FILE_P,
     FILE_SEQUENCE,

@@ -23,6 +23,11 @@ dependent on the opcode:
     | ERROR (1) | err_code (1) |
     ----------------------------
 
+- CLOSE_CONNECTION: request for closing the connection
+    ------------------------
+    | CLOSE_CONNECTION (1) |
+    ------------------------
+
 - DATA: the packet contains some binary data
     The first 8 bytes (interpreted as an unsigned long) are the data size.
     Then data_size bytes represent the actual data.

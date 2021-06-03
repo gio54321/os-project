@@ -37,6 +37,14 @@ int main(void)
     assert(receive_packet(fds[0], &recv) > 0);
     assert(recv.op == ACK);
 
+    // TEST CLOSE_CONNECTION
+    clear_packet(&send);
+    clear_packet(&recv);
+    send.op = CLOSE_CONNECTION;
+    assert(send_packet(fds[1], &send) > 0);
+    assert(receive_packet(fds[0], &recv) > 0);
+    assert(recv.op == CLOSE_CONNECTION);
+
     // TEST ERROR
     clear_packet(&send);
     clear_packet(&recv);
