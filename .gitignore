@@ -56,3 +56,6 @@ bin/*
 
 # editor folders
 .vscode/*
+
+# log file
+log.txt
