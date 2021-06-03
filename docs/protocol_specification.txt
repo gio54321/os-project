@@ -108,6 +108,14 @@ dependent on the opcode:
     | UNLOCK_FILE (1) | name_length (8) | filename (name_length) |
     --------------------------------------------------------------
 
+- REMOVE_FILE: the packet contains a request to remove a file
+    The first 8 bytes (interpreted as an unsigned long) are the filename size.
+    Then name_length bytes represent the name of the file represented as a
+    *not null terminated* sequence of characters
+    --------------------------------------------------------------
+    | REMOVE_FILE (1) | name_length (8) | filename (name_length) |
+    --------------------------------------------------------------
+
 2. ================== Protocol specification ==================
 
 See msc_noerrors.png for the specification of all the operations.

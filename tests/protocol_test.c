@@ -195,5 +195,20 @@ int main(void)
     assert(strcmp(recv.filename, "AAAAA") == 0);
     assert(recv.filename[recv.name_length] == '\0');
     assert(destroy_packet(&recv) == 0);
+
+    // TEST REMOVE_FILE
+    clear_packet(&send);
+    clear_packet(&recv);
+    send.op = REMOVE_FILE;
+    send.name_length = 5;
+    send.filename = dummy_filename;
+    assert(send_packet(fds[1], &send) > 0);
+    assert(receive_packet(fds[0], &recv) > 0);
+    assert(recv.op == REMOVE_FILE);
+    assert(recv.name_length == 5);
+    assert(strcmp(recv.filename, "AAAAA") == 0);
+    assert(recv.filename[recv.name_length] == '\0');
+    assert(destroy_packet(&recv) == 0);
+
     return 0;
 }

@@ -144,6 +144,7 @@ ssize_t send_packet(int fd, struct packet* packet)
     case APPEND_TO_FILE:
     case LOCK_FILE:
     case UNLOCK_FILE:
+    case REMOVE_FILE:
         write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
             return write_res;
@@ -265,6 +266,7 @@ int receive_packet(int fd, struct packet* res_packet)
     case APPEND_TO_FILE:
     case LOCK_FILE:
     case UNLOCK_FILE:
+    case REMOVE_FILE:
         read_res = readn(fd, &res_packet->name_length, 8);
         if (read_res <= 0) {
             return read_res;

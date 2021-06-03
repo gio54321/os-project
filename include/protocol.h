@@ -23,7 +23,8 @@ enum opcodes {
     READ_N_FILES,
     APPEND_TO_FILE,
     LOCK_FILE,
-    UNLOCK_FILE
+    UNLOCK_FILE,
+    REMOVE_FILE
 };
 
 enum flags {
