@@ -1,0 +1,85 @@
+# MSC for protocol: no errors version
+# compile with mscgen -T png msc_noerrors.txt
+msc {
+  hscale = "1";
+
+  C, S;
+
+  --- [ label = "openConnection()" ];
+  C->S [ label = "connect()" ] ;
+  S->C [ label = "COMP"];
+
+  |||;
+  --- [ label = "closeConnection()" ];
+  C->S [ label = "CLOSE_CONN" ] ;
+  S->C [ label = "COMP"];
+
+  |||;
+  --- [ label = "openFile()" ];
+  C->S [ label = "OPEN_FILE" ] ;
+  S->C [ label = "COMP"];
+
+  |||;
+  --- [ label = "readFile()" ];
+  C->S [ label = "READ_FILE" ] ;
+  S->C [ label = "FILE_P"];
+  C->S [ label = "COMP" ] ;
+
+  |||;
+  --- [ label = "readNFiles()" ];
+  C->S [ label = "READ_N_FILES" ] ;
+  S->C [ label = "FILE_P (1)"];
+  C->S [ label = "ACK" ] ;
+  ...;
+  S->C [ label = "FILE_P (k)"];
+  C->S [ label = "ACK" ] ;
+  S->C [ label = "COMP" ] ;
+
+  |||;
+  --- [ label = "writeFile()" ];
+  C->S [ label = "WRITE_FILE" ];
+  S->C [ label = "ACK" ] ;
+  C->S [ label = "DATA" ];
+  |||;
+  S->C [ label = "FILE_P (1)"];
+  C->S [ label = "ACK" ] ;
+  ...;
+  S->C [ label = "FILE_P (n)"];
+  C->S [ label = "ACK" ] ;
+  |||;
+  S->C [ label = "COMP" ] ;
+
+  |||;
+  --- [ label = "appendToFile()" ];
+  C->S [ label = "APPEND_TO_FILE" ];
+  S->C [ label = "ACK" ] ;
+  C->S [ label = "DATA" ];
+  |||;
+  S->C [ label = "FILE_P (1)"];
+  C->S [ label = "ACK" ] ;
+  ...;
+  S->C [ label = "FILE_P (n)"];
+  C->S [ label = "ACK" ] ;
+  |||;
+  S->C [ label = "COMP" ] ;
+
+  |||;
+  --- [ label = "lockFile()" ];
+  C->S [ label = "LOCK_FILE" ];
+  S->C [ label = "COMP" ] ;
+
+  |||;
+  --- [ label = "unlockFile()" ];
+  C->S [ label = "UNLOCK_FILE" ];
+  S->C [ label = "COMP" ] ;
+
+  |||;
+  --- [ label = "closeFile()" ];
+  C->S [ label = "CLOSE_FILE" ];
+  S->C [ label = "COMP" ] ;
+
+  |||;
+  --- [ label = "removeFile()" ];
+  C->S [ label = "REMOVE_FILE" ];
+  S->C [ label = "COMP" ] ;
+}
