@@ -10,8 +10,8 @@ CFLAGS = -Wall -pedantic -std=gnu17 \
 LIBS = -lpthread
 
 _OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
-	   utils
-CONCURRENT_OBJ = unbounded_shared_buffer
+	   utils logger
+CONCURRENT_OBJ = unbounded_shared_buffer logger
 
 OBJ = $(patsubst %,$(OBJDIR)/%.o,$(_OBJ))
 TESTS = $(patsubst %,$(BINDIR)/%_test,$(_OBJ))
@@ -48,6 +48,9 @@ $(OBJDIR)/file_storage_internal.o: $(SRCDIR)/file_storage_internal.c $(IDIR)/fil
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
 $(OBJDIR)/utils.o: $(SRCDIR)/utils.c $(IDIR)/utils.h
+	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
+
+$(OBJDIR)/logger.o: $(SRCDIR)/logger.c $(IDIR)/logger.h
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
 # generic rule for all tests
