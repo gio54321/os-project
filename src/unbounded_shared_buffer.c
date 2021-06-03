@@ -165,7 +165,7 @@ int usbuf_get(usbuf_t* buf, void** res)
         if (wait_res != 0) {
             return -1;
         }
-        if (buf->closed) {
+        if (buf->closed && buf->start == NULL) {
             int unlock_res = pthread_mutex_unlock(&buf->mutex);
             if (unlock_res != 0) {
                 return -1;
