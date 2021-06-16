@@ -26,8 +26,8 @@ file_storage_t* create_file_storage(enum file_replacement_policy replacement_pol
     // initialize all the fields
     storage->first = NULL;
     storage->last = NULL;
-    int init_res = pthread_mutex_init(&storage->mutex, NULL);
-    if (init_res == -1) {
+    storage->rw_lock = create_rw_lock();
+    if (storage->rw_lock == NULL) {
         return NULL;
     }
     storage->num_files = 0;
@@ -56,7 +56,7 @@ int destroy_file_storage(file_storage_t* storage)
     }
 
     // destroy the mutex
-    int destroy_res = pthread_mutex_destroy(&storage->mutex);
+    int destroy_res = destroy_rw_lock(storage->rw_lock);
     if (destroy_res == -1) {
         return -1;
     }
@@ -112,31 +112,18 @@ int destroy_vfile(vfile_t* vfile)
 }
 
 /**
- * Lock the file storage data structure.
- * Returns -1 on error and errno is set appropriately.
+ * Get the rw lock contained in the storage
+ * Each read operation to the storage must be done between read_lock() and read_unlock()
+ * Each write operation to the storage must be done between write_lock() and write_unlock()
+ * return NULL on error and errno is set apporopriately
 */
-int lock_file_storage(file_storage_t* storage)
+rw_lock_t* get_rw_lock_from_storage(file_storage_t* storage)
 {
     if (storage == NULL) {
         errno = EINVAL;
-        return -1;
+        return NULL;
     }
-    int lock_res = pthread_mutex_lock(&storage->mutex);
-    return lock_res;
-}
-
-/**
- * Unlock the file storage data structure.
- * Returns -1 on error and errno is set appropriately.
-*/
-int unlock_file_storage(file_storage_t* storage)
-{
-    if (storage == NULL) {
-        errno = EINVAL;
-        return -1;
-    }
-    int unlock_res = pthread_mutex_unlock(&storage->mutex);
-    return unlock_res;
+    return storage->rw_lock;
 }
 
 /**

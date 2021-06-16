@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "int_queue.h"
+#include "rw_lock.h"
 
 enum file_replacement_policy {
     FIFO_REPLACEMENT,
@@ -33,7 +34,7 @@ typedef struct file_storage {
     struct vfile* first;
     struct vfile* last;
     enum file_replacement_policy replacement_policy;
-    pthread_mutex_t mutex;
+    rw_lock_t* rw_lock;
     unsigned int num_files;
     size_t total_size;
 } file_storage_t;
@@ -66,16 +67,12 @@ vfile_t* create_vfile();
 int destroy_vfile(vfile_t* vfile);
 
 /**
- * Lock the file storage data structure.
- * Returns -1 on error and errno is set appropriately.
+ * Get the rw lock contained in the storage
+ * Each read operation to the storage must be done between read_lock() and read_unlock()
+ * Each write operation to the storage must be done between write_lock() and write_unlock()
+ * return NULL on error and errno is set apporopriately
 */
-int lock_file_storage(file_storage_t* storage);
-
-/**
- * Unlock the file storage data structure.
- * Returns -1 on error and errno is set appropriately.
-*/
-int unlock_file_storage(file_storage_t* storage);
+rw_lock_t* get_rw_lock_from_storage(file_storage_t* storage);
 
 /**
  * Add a vfile to a file storage.
