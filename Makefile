@@ -10,19 +10,21 @@ CFLAGS = -Wall -pedantic -std=gnu17 \
 LIBS = -lpthread
 
 _OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
+	   utils logger thread_pool rw_lock compression server_worker
+TEST_OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
 	   utils logger thread_pool rw_lock compression
 CONCURRENT_OBJ = unbounded_shared_buffer logger thread_pool rw_lock
 
 OBJ = $(patsubst %,$(OBJDIR)/%.o,$(_OBJ))
-TESTS = $(patsubst %,$(BINDIR)/%_test,$(_OBJ))
-RUNTESTS = $(patsubst %,run_%_test,$(_OBJ))
+TESTS = $(patsubst %,$(BINDIR)/%_test,$(TEST_OBJ))
+RUNTESTS = $(patsubst %,run_%_test,$(TEST_OBJ))
 
 CTESTS = $(patsubst %,$(BINDIR)/%_ctest,$(CONCURRENT_OBJ))
 RUNCTESTS = $(patsubst %,run_%_ctest,$(CONCURRENT_OBJ))
 
 .PHONY: all tests run-all-tests run-tests run-ctests clean
 
-all: $(OBJ)
+all: $(OBJ) $(BINDIR)/server 
 
 clean:
 	rm -f $(OBJ) $(TESTS) $(CTESTS)
@@ -61,6 +63,12 @@ $(OBJDIR)/rw_lock.o: $(SRCDIR)/rw_lock.c $(IDIR)/rw_lock.h
 
 $(OBJDIR)/compression.o: $(SRCDIR)/compression.c $(IDIR)/compression.h
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/server_worker.o: $(SRCDIR)/server_worker.c $(IDIR)/server_worker.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/server: $(SRCDIR)/server.c $(OBJ)
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
 # generic rule for all tests
 $(TESTS): $(BINDIR)/%_test: $(TESTDIR)/%_test.c $(OBJ)
