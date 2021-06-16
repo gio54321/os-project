@@ -1,3 +1,6 @@
+#ifndef FILE_STORAGE_API_H
+#define FILE_STORAGE_API_H
+
 #include <stdlib.h>
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime);
@@ -14,3 +17,4 @@ int unlockFile(const char* pathname);
 
 int closeFile(const char* pathname);
 int removeFile(const char* pathname);
+#endif
