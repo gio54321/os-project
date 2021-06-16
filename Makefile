@@ -10,7 +10,7 @@ CFLAGS = -Wall -pedantic -std=gnu17 \
 LIBS = -lpthread
 
 _OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
-	   utils logger thread_pool rw_lock
+	   utils logger thread_pool rw_lock compression
 CONCURRENT_OBJ = unbounded_shared_buffer logger thread_pool rw_lock
 
 OBJ = $(patsubst %,$(OBJDIR)/%.o,$(_OBJ))
@@ -58,6 +58,9 @@ $(OBJDIR)/thread_pool.o: $(SRCDIR)/thread_pool.c $(IDIR)/thread_pool.h
 
 $(OBJDIR)/rw_lock.o: $(SRCDIR)/rw_lock.c $(IDIR)/rw_lock.h
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
+
+$(OBJDIR)/compression.o: $(SRCDIR)/compression.c $(IDIR)/compression.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # generic rule for all tests
 $(TESTS): $(BINDIR)/%_test: $(TESTDIR)/%_test.c $(OBJ)
