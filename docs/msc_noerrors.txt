@@ -7,7 +7,7 @@ msc {
 
   --- [ label = "openConnection()" ];
   C->S [ label = "connect()" ] ;
-  S->C [ label = "COMP"];
+  S->C [ label = "connection succeded (implicit)"];
 
   |||;
   --- [ label = "closeConnection()" ];

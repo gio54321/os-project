@@ -19,6 +19,7 @@ enum opcodes {
     FILE_SEQUENCE,
     OPEN_FILE,
     CLOSE_FILE,
+    WRITE_FILE,
     READ_FILE,
     READ_N_FILES,
     APPEND_TO_FILE,

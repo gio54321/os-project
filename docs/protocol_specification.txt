@@ -69,6 +69,14 @@ dependent on the opcode:
     | CLOSE_FILE (1) | name_length (8) | filename (name_length) |
     -------------------------------------------------------------
 
+- WRITE_FILE: the packet contains a request of file writing
+    The first 8 bytes (interpreted as an unsigned long) are the filename size.
+    Then name_length bytes represent the name of the file represented as a
+    *not null terminated* sequence of characters
+    -------------------------------------------------------------
+    | WRITE_FILE (1) | name_length (8) | filename (name_length) |
+    -------------------------------------------------------------
+
 - READ_FILE: the packet contains a request of file read
     The first 8 bytes (interpreted as an unsigned long) are the filename size.
     Then name_length bytes represent the name of the file represented as a
