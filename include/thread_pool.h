@@ -6,13 +6,23 @@
 typedef struct thread_pool_s thread_pool_t;
 
 /**
+ * Struct that holds the number of the worker and the input
+ * argument common to all the workers
+*/
+typedef struct thread_pool_arg_s {
+    unsigned int num_worker;
+    void* common_arg;
+} thread_pool_arg_t;
+
+/**
  * Create a thread pool
  * Spawn num_threads threads.
  * Each thread is created executing the worker function, with argument arg
  * Return a pointer to a thread_pool_t on success.
  * Return NULL on error, and errno is set appropriately.
 */
-thread_pool_t* thread_pool_create(unsigned int num_threads,
+thread_pool_t*
+thread_pool_create(unsigned int num_threads,
     void* (*worker)(void*),
     void* arg);
 

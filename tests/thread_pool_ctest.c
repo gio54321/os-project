@@ -8,7 +8,9 @@
 
 void* worker(void* arg)
 {
-    usbuf_t* buf = arg;
+    thread_pool_arg_t* pool_arg = arg;
+
+    usbuf_t* buf = pool_arg->common_arg;
     for (;;) {
         void* res;
         int get_res = usbuf_get(buf, &res);

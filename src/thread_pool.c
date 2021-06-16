@@ -7,6 +7,7 @@
 struct thread_pool_s {
     unsigned int num_threads;
     pthread_t* tids;
+    thread_pool_arg_t* args;
 };
 
 /**
@@ -29,11 +30,21 @@ thread_pool_t* thread_pool_create(unsigned int num_threads,
     if (tids == NULL) {
         return NULL;
     }
+
+    thread_pool_arg_t* args = malloc(num_threads * sizeof(thread_pool_arg_t));
+    if (args == NULL) {
+        return NULL;
+    }
+
     pool->num_threads = num_threads;
     pool->tids = tids;
+    pool->args = args;
 
     for (unsigned int i = 0; i < num_threads; ++i) {
-        int create_res = pthread_create(&(pool->tids[i]), NULL, worker, arg);
+        pool->args[i].common_arg = arg;
+        pool->args[i].num_worker = i;
+
+        int create_res = pthread_create(&(pool->tids[i]), NULL, worker, &(pool->args[i]));
         if (create_res == -1) {
             return NULL;
         }
@@ -63,6 +74,7 @@ int thread_pool_join(thread_pool_t* pool)
     }
 
     free(pool->tids);
+    free(pool->args);
     free(pool);
     return 0;
 }

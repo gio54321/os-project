@@ -7,7 +7,9 @@
 
 void* worker(void* arg)
 {
-    int* int_arg = arg;
+    thread_pool_arg_t* pool_arg = arg;
+
+    int* int_arg = pool_arg->common_arg;
     assert(*int_arg == 42);
     return NULL;
 }
