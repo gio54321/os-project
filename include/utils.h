@@ -37,4 +37,11 @@ ssize_t readn(int fd, void* buf, size_t nbytes);
 */
 ssize_t writen(int fd, void* buf, size_t nbytes);
 
+/**
+ * Convert a string to a long
+ * Return 0 on success and the resulting long is stored in n
+ * Return -1 on failure
+*/
+int string_to_long(const char* s, long* n);
+
 #endif

@@ -1,3 +1,6 @@
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "utils.h"
@@ -52,4 +55,27 @@ ssize_t writen(int fd, void* ptr, size_t n)
         ptr += nwritten;
     }
     return (n - nleft);
+}
+
+/**
+ * Convert a string to a long
+ * Return 0 on success and the resulting long is stored in n
+ * Return -1 on failure
+*/
+int string_to_long(const char* s, long* n)
+{
+    if (s == NULL)
+        return -1;
+    if (strlen(s) == 0)
+        return -1;
+    char* e = NULL;
+    errno = 0;
+    long val = strtol(s, &e, 10);
+    if (errno == ERANGE)
+        return -1; // overflow
+    if (e != NULL && *e == (char)0) {
+        *n = val;
+        return 0; // successo
+    }
+    return -1; // non e' un numero
 }
