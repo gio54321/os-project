@@ -28,6 +28,12 @@ enum opcodes {
     REMOVE_FILE
 };
 
+enum err_codes {
+    FILE_ALREADY_EXISTS,
+    FILE_DOES_NOT_EXIST,
+    FILE_ALREADY_LOCKED
+};
+
 enum flags {
     O_CREATE = 1, //0b01
     O_LOCK = 2 //0b10
