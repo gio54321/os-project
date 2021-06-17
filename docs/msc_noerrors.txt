@@ -22,8 +22,7 @@ msc {
   |||;
   --- [ label = "readFile()" ];
   C->S [ label = "READ_FILE" ] ;
-  S->C [ label = "FILE_P"];
-  C->S [ label = "COMP" ] ;
+  S->C [ label = "DATA"];
 
   |||;
   --- [ label = "readNFiles()" ];
