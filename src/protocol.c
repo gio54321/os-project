@@ -294,11 +294,18 @@ void print_error_code(char error_code, const char* context)
     switch (error_code) {
     case FILE_ALREADY_EXISTS:
         fprintf(stderr, "%s: file already exists\n", context);
+        break;
     case FILE_DOES_NOT_EXIST:
         fprintf(stderr, "%s: file does not exist\n", context);
+        break;
     case FILE_ALREADY_LOCKED:
         fprintf(stderr, "%s: file is already locked\n", context);
+        break;
+    case FILE_IS_LOCKED_BY_ANOTHER_CLIENT:
+        fprintf(stderr, "%s: file is locked by another client\n", context);
+        break;
     default:
         fprintf(stderr, "%s: invalid error code\n", context);
+        break;
     }
 }

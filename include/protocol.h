@@ -31,7 +31,8 @@ enum opcodes {
 enum err_codes {
     FILE_ALREADY_EXISTS,
     FILE_DOES_NOT_EXIST,
-    FILE_ALREADY_LOCKED
+    FILE_ALREADY_LOCKED,
+    FILE_IS_LOCKED_BY_ANOTHER_CLIENT
 };
 
 enum flags {
