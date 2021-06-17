@@ -25,6 +25,15 @@ static int send_error(int client_fd, char err_code)
     return send_packet(client_fd, &err_packet);
 }
 
+static int send_comp(int client_fd)
+{
+    struct packet err_packet;
+    clear_packet(&err_packet);
+
+    err_packet.op = COMP;
+    return send_packet(client_fd, &err_packet);
+}
+
 static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 {
     usbuf_t* master_to_workers_buf = worker_args->master_to_workers_buffer;
@@ -43,6 +52,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
         int get_res;
         DIE_NEG1(get_res = usbuf_get(master_to_workers_buf, &client_fd_ptr), "usbuf get");
         if (get_res == -2) {
+            LOG(logger_buffer, "Worker %d terminated", num_worker);
             // the buffer is closed, so the worker should terminate
             return;
         }
@@ -58,7 +68,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
         DIE_NEG1(receive_res = receive_packet(client_fd, &client_packet), "receive_packet");
         if (receive_res == 0) {
             // the client disconnected
-            perror("receive packet");
+            LOG(logger_buffer, "client %d disconnected, cleaning up the storage", client_fd);
 
             // cleanup the client fd in the entire structure before closing the
             // file descriptor. This prevents any possibility of any data race
@@ -77,6 +87,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
         case OPEN_FILE:
             LOG(logger_buffer, "client %d requested to open %s", client_fd, client_packet.filename);
             write_lock(storage_lock);
+            bool completed = false;
             vfile_t* file_to_open = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_open == NULL) {
                 if (errno = ENOENT) {
@@ -92,6 +103,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     } else {
                         LOG(logger_buffer, "file open requested for %s but the file does not exist in the storage", client_packet.filename);
                         DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                        completed = true;
                     }
                 } else {
                     perror("get file from name");
@@ -99,23 +111,29 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 }
             }
 
-            // se the client fd in the opened by set
-            FD_SET(client_fd, &file_to_open->opened_by);
+            if (!completed) {
+                // se the client fd in the opened by set
+                FD_SET(client_fd, &file_to_open->opened_by);
 
-            // if the flag O_LOCK is set then try to lock the file
-            if (client_packet.flags & O_LOCK) {
-                if (file_to_open->locked_by == -1) {
-                    LOG(logger_buffer, "client %d locked the file %s", client_fd, client_packet.filename);
-                    file_to_open->locked_by = client_fd;
-                } else {
-                    LOG(logger_buffer, "client %d requested to lock the file %s but was already locked, operation failed", client_fd, client_packet.filename);
-                    // if the file is already locked then fail
-                    DIE_NEG1(send_error(client_fd, FILE_ALREADY_LOCKED), "send error");
+                // if the flag O_LOCK is set then try to lock the file
+                if (client_packet.flags & O_LOCK) {
+                    if (file_to_open->locked_by == -1) {
+                        LOG(logger_buffer, "client %d locked the file %s", client_fd, client_packet.filename);
+                        file_to_open->locked_by = client_fd;
+                    } else {
+                        LOG(logger_buffer, "client %d requested to lock the file %s but was already locked, operation failed", client_fd, client_packet.filename);
+                        // if the file is already locked then fail
+                        DIE_NEG1(send_error(client_fd, FILE_ALREADY_LOCKED), "send error");
 
-                    // clear the client in the opened by set (the opertion failed, so
-                    // the file is not opened by the client)
-                    FD_CLR(client_fd, &file_to_open->opened_by);
+                        // clear the client in the opened by set (the opertion failed, so
+                        // the file is not opened by the client)
+                        FD_CLR(client_fd, &file_to_open->opened_by);
+                        completed = true;
+                    }
                 }
+            }
+            if (!completed) {
+                send_comp(client_fd);
             }
 
             write_unlock(storage_lock);
