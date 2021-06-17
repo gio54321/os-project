@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "file_storage_internal.h"
 #include "logger.h"
@@ -25,13 +26,13 @@ static int send_error(int client_fd, char err_code)
     return send_packet(client_fd, &err_packet);
 }
 
-static int send_comp(int client_fd)
+static void send_comp(int client_fd)
 {
     struct packet err_packet;
     clear_packet(&err_packet);
 
     err_packet.op = COMP;
-    return send_packet(client_fd, &err_packet);
+    DIE_NEG(send_packet(client_fd, &err_packet), "send packet");
 }
 
 static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
@@ -111,6 +112,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 }
             }
 
+            // if not already completed then handle the locking of the file
             if (!completed) {
                 // se the client fd in the opened by set
                 FD_SET(client_fd, &file_to_open->opened_by);
@@ -139,6 +141,34 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             write_unlock(storage_lock);
             break;
         case READ_FILE:
+            LOG(logger_buffer, "client %d requested to read %s", client_fd, client_packet.filename);
+            read_lock(storage_lock);
+            vfile_t* file_to_read = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
+            if (file_to_read == NULL) {
+                if (errno = ENOENT) {
+                    // file does not exists in the storage
+                    LOG(logger_buffer, "file read requested for %s but the file does not exist in the storage", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                } else {
+                    perror("get file from name");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                if (file_to_read->locked_by != -1 && file_to_read->locked_by != client_fd) {
+                    // the file is locked by another client
+                    LOG(logger_buffer, "file read requested for %s but the file is already locked by client %d", client_packet.filename, file_to_read->locked_by);
+                    DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                } else {
+                    struct packet response;
+                    clear_packet(&response);
+                    response.op = DATA;
+                    response.data_size = file_to_read->size;
+                    response.data = file_to_read->data;
+                    DIE_NEG(send_packet(client_fd, &response), "send packet");
+                    LOG(logger_buffer, "%ld bytes sent to client %d for reading %s", file_to_read->size, client_fd, client_packet.filename);
+                }
+            }
+            read_unlock(storage_lock);
             break;
         case READ_N_FILES:
             break;
@@ -153,12 +183,34 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
         case CLOSE_FILE:
             break;
         case REMOVE_FILE:
+            LOG(logger_buffer, "client %d requested to remove %s", client_fd, client_packet.filename);
+            write_lock(storage_lock);
+            vfile_t* file_to_remove = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
+            if (file_to_remove == NULL) {
+                if (errno = ENOENT) {
+                    // file does not exists in the storage
+                    LOG(logger_buffer, "file removal requested for %s but the file does not exist in the storage", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                } else {
+                    perror("get file from name");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                if (file_to_remove->locked_by != -1 && file_to_remove->locked_by != client_fd) {
+                    // the file is locked by another client
+                    LOG(logger_buffer, "file removal requested for %s but the file is already locked by client %d", client_packet.filename, file_to_remove->locked_by);
+                    DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                } else {
+                    DIE_NEG1(remove_file_from_storage(file_storage, file_to_remove), "remove_file_from_storage");
+                    send_comp(client_fd);
+                }
+            }
+            write_unlock(storage_lock);
             break;
         default:
             break;
         }
 
-        printf("worker %d got %d\n", client_fd, client_fd);
         writen(worker_to_master_pipe, &client_fd, sizeof(int));
     }
 }
