@@ -173,11 +173,8 @@ int main(void)
         tmp_set = listen_set;
 
         DIE_NEG1(select(fd_max + 1, &tmp_set, NULL, NULL, NULL), "select");
-        printf("select\n");
         for (int fd = 0; fd <= fd_max; ++fd) {
             if (FD_ISSET(fd, &tmp_set)) {
-                printf("set %d", fd);
-
                 if (fd == socket_fd) {
                     // new client connection request
                     int client_fd;
@@ -186,7 +183,7 @@ int main(void)
                     if (client_fd > fd_max) {
                         fd_max = client_fd;
                     }
-                    printf("new client %d\n", client_fd);
+                    LOG(logger_buffer, "client %d connected", client_fd);
                 } else if (fd == sig_handler_to_master_pipe[0]) {
                     // TODO handle signal
                 } else if (fd == workers_to_master_pipe[0]) {
@@ -203,7 +200,6 @@ int main(void)
 
                 } else {
                     // handle client's new request
-                    printf("client request %d\n", fd);
                     int* client_fd;
                     DIE_NULL(client_fd = malloc(sizeof(int)), "malloc");
                     *client_fd = fd;
