@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdio.h>
 #include <unistd.h>
 
 #include "protocol.h"
@@ -283,4 +284,21 @@ int receive_packet(int fd, struct packet* res_packet)
         return read_res;
     }
     return -1;
+}
+
+/**
+ * Print a human readable error on stderr
+*/
+void print_error_code(char error_code, const char* context)
+{
+    switch (error_code) {
+    case FILE_ALREADY_EXISTS:
+        fprintf(stderr, "%s: file already exists\n", context);
+    case FILE_DOES_NOT_EXIST:
+        fprintf(stderr, "%s: file does not exist\n", context);
+    case FILE_ALREADY_LOCKED:
+        fprintf(stderr, "%s: file is already locked\n", context);
+    default:
+        fprintf(stderr, "%s: invalid error code\n", context);
+    }
 }

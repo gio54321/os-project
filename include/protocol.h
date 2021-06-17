@@ -89,4 +89,9 @@ int receive_packet(int fd, struct packet* res_packet);
  * garbage pointers calling this function is U.B and might lead to segfault.
 */
 int destroy_packet(struct packet* packet);
+
+/**
+ * Print a human readable error on stderr
+*/
+void print_error_code(char error_code, const char* context);
 #endif
