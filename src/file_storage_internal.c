@@ -84,13 +84,10 @@ vfile_t* create_vfile()
     vfile->prev = NULL;
     FD_ZERO(&vfile->opened_by);
     vfile->locked_by = -1;
+    FD_ZERO(&vfile->lock_queue);
+    vfile->lock_queue_max = 0;
     vfile->data = NULL;
 
-    // create a new int_queue object dtored in the lock_queue field
-    vfile->lock_queue = int_queue_create();
-    if (vfile->lock_queue == NULL) {
-        return NULL;
-    }
     return vfile;
 }
 
@@ -104,7 +101,6 @@ int destroy_vfile(vfile_t* vfile)
         errno = EINVAL;
         return -1;
     }
-    int_queue_free(vfile->lock_queue);
     free(vfile->data);
     free(vfile->filename);
     free(vfile);

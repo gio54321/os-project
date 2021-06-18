@@ -24,7 +24,8 @@ typedef struct vfile {
 
     fd_set opened_by;
     int locked_by;
-    int_queue_t* lock_queue;
+    fd_set lock_queue;
+    int lock_queue_max;
 
     // actual data
     void* data;
