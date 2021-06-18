@@ -311,6 +311,9 @@ void print_error_code(char error_code, const char* context)
     case FILE_IS_NOT_OPENED:
         fprintf(stderr, "%s: file is not opened by the client\n", context);
         break;
+    case FILE_WAS_ALREADY_WRITTEN:
+        fprintf(stderr, "%s: file was already written\n", context);
+        break;
     default:
         fprintf(stderr, "%s: invalid error code\n", context);
         break;
