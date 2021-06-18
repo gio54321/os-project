@@ -32,7 +32,8 @@ enum err_codes {
     FILE_ALREADY_EXISTS,
     FILE_DOES_NOT_EXIST,
     FILE_ALREADY_LOCKED,
-    FILE_IS_LOCKED_BY_ANOTHER_CLIENT
+    FILE_IS_LOCKED_BY_ANOTHER_CLIENT,
+    FILE_IS_NOT_OPENED
 };
 
 enum flags {
@@ -48,7 +49,7 @@ struct packet {
     u_int64_t data_size;
     void* data;
     char flags;
-    u_int64_t count;
+    int64_t count;
 };
 
 /**

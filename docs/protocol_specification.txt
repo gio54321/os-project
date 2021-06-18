@@ -46,7 +46,7 @@ dependent on the opcode:
     --------------------------------------------------------------------------------------------
 
 - FILE_SEQUENCE: this packet indicates that will be sent multiple files as separate packets
-    The first 8 bytes (interpreted as an unsigned long) indicates how many files
+    The first 8 bytes (interpreted as a signed long) indicates how many files
     will be sent.
     ---------------------------------
     | FILE_SEQUENCE (1) | count (8) |
@@ -86,7 +86,7 @@ dependent on the opcode:
     ------------------------------------------------------------
 
 - READ_N_FILES:the packet contains a request of reading n files at random.
-    The first 8 bytes (interpreted as an unsigned long) indicates how many files
+    The first 8 bytes (interpreted as a signed long) indicates how many files
     the client is requesting
     --------------------------------
     | READ_N_FILES (1) | count (8) |
