@@ -98,9 +98,10 @@ int remove_file_from_storage(file_storage_t* storage, vfile_t* vfile);
 
 /**
  * Returns a pointer to a victim file, chosen using the policy of the storage
+ * If file_to_exclude is not NUL, then it is never returned
  * Returns NULL on error and errno is set appropriately.
 */
-vfile_t* choose_victim_file(file_storage_t* storage);
+vfile_t* choose_victim_file(file_storage_t* storage, vfile_t* file_to_exclude);
 
 /**
  * Return a pointer to the file in the storage with given filename. If the file

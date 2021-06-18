@@ -198,7 +198,7 @@ int remove_file_from_storage(file_storage_t* storage, vfile_t* vfile)
  * Returns a pointer to a victim file, chosen using the policy of the storage
  * Returns NULL on error and errno is set appropriately.
 */
-vfile_t* choose_victim_file(file_storage_t* storage)
+vfile_t* choose_victim_file(file_storage_t* storage, vfile_t* file_to_exclude)
 {
     if (storage == NULL) {
         errno = EINVAL;
@@ -208,8 +208,13 @@ vfile_t* choose_victim_file(file_storage_t* storage)
     switch (storage->replacement_policy) {
     case FIFO_REPLACEMENT:
         // for the FIFO policy it is trivial to choose the victim file: it is
-        // just the first one in the list
-        return storage->first;
+        // just the first one in the list, if it is not the file_to_exclude, then
+        // the second is returned
+        if (file_to_exclude != NULL && storage->first == file_to_exclude) {
+            return storage->first->next;
+        } else {
+            return storage->first;
+        }
     case LRU_REPLACEMENT:
     case LFU_REPLACEMENT:
     default:
