@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +23,11 @@ static int max(int a, int b)
     return (a > b) ? a : b;
 }
 
+enum termination_code {
+    HARD_EXIT,
+    SOFT_EXIT
+};
+
 struct server_config {
     long num_workers;
     long max_num_files;
@@ -29,6 +35,43 @@ struct server_config {
     bool enable_compression;
     char* socketname;
 };
+
+struct signal_handler_arg {
+    sigset_t* signal_mask;
+    int pipe_write_end;
+};
+
+static void* signal_handler_entry_point(void* arg)
+{
+    int fd_pipe = ((struct signal_handler_arg*)arg)->pipe_write_end;
+    sigset_t* signal_mask = ((struct signal_handler_arg*)arg)->signal_mask;
+
+    for (;;) {
+        int sig;
+        int r = sigwait(signal_mask, &sig);
+        if (r != 0) {
+            errno = r;
+            perror("FATAL ERROR 'sigwait'");
+            exit(EXIT_FAILURE);
+        }
+
+        char termination_code;
+
+        switch (sig) {
+        case SIGINT:
+        case SIGQUIT:
+            termination_code = HARD_EXIT;
+            write(fd_pipe, &termination_code, sizeof(char));
+            return NULL;
+        case SIGHUP:
+            termination_code = SOFT_EXIT;
+            write(fd_pipe, &termination_code, sizeof(char));
+            return NULL;
+        default:;
+        }
+    }
+    return NULL;
+}
 
 /**
  * Parse the config file config_filename
@@ -107,6 +150,24 @@ int main(void)
     usbuf_t* logger_buffer;
     file_storage_t* file_storage;
 
+    // mask the desired signals
+    sigset_t signal_mask;
+    sigemptyset(&signal_mask);
+    sigaddset(&signal_mask, SIGINT);
+    sigaddset(&signal_mask, SIGQUIT);
+    sigaddset(&signal_mask, SIGHUP);
+
+    if (pthread_sigmask(SIG_BLOCK, &signal_mask, NULL) != 0) {
+        perror("sigmask");
+        exit(EXIT_FAILURE);
+    }
+
+    // ignore SIGPIPE
+    struct sigaction s;
+    memset(&s, 0, sizeof(s));
+    s.sa_handler = SIG_IGN;
+    DIE_NEG1((sigaction(SIGPIPE, &s, NULL)), "sigaction");
+
     // initalize the shared buffers
     DIE_NULL(master_to_workers_buffer = usbuf_create(FIFO_POLICY), "usbuf create");
     DIE_NULL(logger_buffer = usbuf_create(FIFO_POLICY), "usbuf create");
@@ -114,6 +175,11 @@ int main(void)
     // create the pipes
     DIE_NEG1(pipe(workers_to_master_pipe), "pipe");
     DIE_NEG1(pipe(sig_handler_to_master_pipe), "pipe");
+
+    // create the signal handler thread
+    struct signal_handler_arg sig_arg = { &signal_mask, sig_handler_to_master_pipe[1] };
+    pthread_t signal_handler_tid;
+    DIE_NEG1(pthread_create(&signal_handler_tid, NULL, signal_handler_entry_point, &sig_arg), "pthread create");
 
     // create the file storage
     DIE_NULL(file_storage = create_file_storage(FIFO_POLICY), "create_file_storage");
@@ -166,10 +232,11 @@ int main(void)
 
     int fd_max = max(max(sig_handler_to_master_pipe[0], workers_to_master_pipe[0]), socket_fd);
 
-    printf("socket fd %d\n", socket_fd);
     // main loop
-    bool termina = false;
-    while (!termina) {
+    bool hard_terminate = false;
+    bool soft_terminate = false;
+    unsigned int num_clients_connected = 0;
+    while ((!hard_terminate) && !(soft_terminate && num_clients_connected == 0)) {
         tmp_set = listen_set;
 
         DIE_NEG1(select(fd_max + 1, &tmp_set, NULL, NULL, NULL), "select");
@@ -184,18 +251,35 @@ int main(void)
                         fd_max = client_fd;
                     }
                     LOG(logger_buffer, "client %d connected", client_fd);
+                    ++num_clients_connected;
                 } else if (fd == sig_handler_to_master_pipe[0]) {
-                    // TODO handle signal
+                    char exit_code;
+                    DIE_NEG1(read(sig_handler_to_master_pipe[0], &exit_code, sizeof(char)), "read");
+                    if (exit_code == HARD_EXIT) {
+                        // terminate the select loop and then do the cleanup
+                        LOG(logger_buffer, "Hard exit signal received, terminating...");
+                        hard_terminate = true;
+                    } else if (exit_code == SOFT_EXIT) {
+                        // remove the socket from the listen set
+                        LOG(logger_buffer, "Soft exit signal received, waiting for all the clients to disconnect...");
+                        FD_CLR(socket_fd, &listen_set);
+                        soft_terminate = true;
+                    }
                 } else if (fd == workers_to_master_pipe[0]) {
                     // handle worker request to put back into the set the fd
                     int put_back_fd;
                     DIE_NEG1(readn(workers_to_master_pipe[0], &put_back_fd, sizeof(int)), "readn");
 
-                    // put the fd in the listen set
-                    FD_SET(put_back_fd, &listen_set);
-                    // update fd_max
-                    if (put_back_fd > fd_max) {
-                        fd_max = put_back_fd;
+                    if (put_back_fd == -1) {
+                        // the client disconnected
+                        --num_clients_connected;
+                    } else {
+                        // put the fd in the listen set
+                        FD_SET(put_back_fd, &listen_set);
+                        // update fd_max
+                        if (put_back_fd > fd_max) {
+                            fd_max = put_back_fd;
+                        }
                     }
 
                 } else {
@@ -224,9 +308,14 @@ int main(void)
     DIE_NEG1(usbuf_close(master_to_workers_buffer), "usbuf close");
     DIE_NEG1(thread_pool_join(workers_pool), "thread_pool_join");
 
+    // join the signal handler thread
+    DIE_NEG1(pthread_join(signal_handler_tid, NULL), "pthread_join");
+
     // close the logger buffer and join the logger thread
     DIE_NEG1(usbuf_close(logger_buffer), "usbuf close");
-    DIE_NEG1(pthread_join(logger_tid, NULL), "thread_pool_join");
+    DIE_NEG1(pthread_join(logger_tid, NULL), "pthread_join");
+
+    DIE_NEG1(unlink(cfg.socketname), "unlink");
 
     free(worker_arg);
     free(cfg.socketname);
