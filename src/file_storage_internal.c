@@ -52,7 +52,7 @@ int destroy_file_storage(file_storage_t* storage)
     for (vfile_t* f = storage->first; f != NULL;) {
         vfile_t* tmp = f;
         f = f->next;
-        free(tmp);
+        destroy_vfile(tmp);
     }
 
     // destroy the mutex
