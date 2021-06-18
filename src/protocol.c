@@ -112,7 +112,9 @@ ssize_t send_packet(int fd, struct packet* packet)
         if (write_res <= 0) {
             return write_res;
         }
-        write_res = writen(fd, packet->data, packet->data_size);
+        if (packet->data_size > 0) {
+            write_res = writen(fd, packet->data, packet->data_size);
+        }
         return write_res;
 
     case FILE_SEQUENCE:
@@ -231,13 +233,15 @@ int receive_packet(int fd, struct packet* res_packet)
         if (read_res <= 0) {
             return read_res;
         }
-        res_packet->data = malloc(res_packet->data_size);
-        if (res_packet->data == NULL) {
-            free(res_packet->filename);
-            errno = ENOMEM;
-            return -1;
+        if (res_packet->data_size > 0) {
+            res_packet->data = malloc(res_packet->data_size);
+            if (res_packet->data == NULL) {
+                free(res_packet->filename);
+                errno = ENOMEM;
+                return -1;
+            }
+            read_res = readn(fd, res_packet->data, res_packet->data_size);
         }
-        read_res = readn(fd, res_packet->data, res_packet->data_size);
         return read_res;
 
     case FILE_SEQUENCE:
@@ -303,6 +307,9 @@ void print_error_code(char error_code, const char* context)
         break;
     case FILE_IS_LOCKED_BY_ANOTHER_CLIENT:
         fprintf(stderr, "%s: file is locked by another client\n", context);
+        break;
+    case FILE_IS_NOT_OPENED:
+        fprintf(stderr, "%s: file is not opened by the client\n", context);
         break;
     default:
         fprintf(stderr, "%s: invalid error code\n", context);
