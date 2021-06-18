@@ -36,6 +36,19 @@ static void send_comp(int client_fd)
 }
 
 /**
+ * Fail all the lock operations blocked on a lock_queue
+*/
+static void flush_lock_queue(fd_set* queue, int fd_max, usbuf_t* logger_buffer)
+{
+    for (int i = 0; i <= fd_max; ++i) {
+        if (FD_ISSET(i, queue)) {
+            LOG(logger_buffer, "client %d was waiting on the lock queue, the lock operation fails", i);
+            DIE_NEG1(send_error(i, FILE_DOES_NOT_EXIST), "send error");
+        }
+    }
+}
+
+/**
  * Send to the client ejected files (possibly 0) until space_needed
  * bytes are available to use in the storage
 */
@@ -44,6 +57,9 @@ static void eject_files(int client_fd, long space_needed, long max_storage_size,
     while (storage->total_size + space_needed > max_storage_size) {
         vfile_t* victim;
         DIE_NULL(victim = choose_victim_file(storage, file_to_exclude), "choose_victim_file");
+
+        // fail any lock operation on the file
+        flush_lock_queue(&victim->lock_queue, victim->lock_queue_max, logger_buffer);
 
         remove_file_from_storage(storage, victim);
 
@@ -59,9 +75,34 @@ static void eject_files(int client_fd, long space_needed, long max_storage_size,
         file_packet.data = victim->data;
 
         DIE_NEG(send_packet(client_fd, &file_packet), "send_packet");
-        //TODO remove clients from the lock queue
 
         DIE_NEG1(destroy_vfile(victim), "destroy_vfile");
+    }
+}
+
+static void unlock_file(vfile_t* file_to_unlock, usbuf_t* logger_buffer)
+{
+    if (file_to_unlock->lock_queue_max > 0) {
+        // give the lock to another client
+        FD_CLR(file_to_unlock->lock_queue_max, &file_to_unlock->lock_queue);
+        int unlock_fd = file_to_unlock->lock_queue_max;
+
+        LOG(logger_buffer, "the mutual exclusion of the file %s is given to %d", file_to_unlock->filename, unlock_fd);
+
+        // re calculate the maximum of the set
+        for (int i = file_to_unlock->lock_queue_max; i >= 0; --i) {
+            if (FD_ISSET(i, &file_to_unlock->lock_queue)) {
+                file_to_unlock->lock_queue_max = i;
+            }
+        }
+        if (file_to_unlock->lock_queue_max == unlock_fd) {
+            file_to_unlock->lock_queue_max = 0;
+        }
+        file_to_unlock->locked_by = unlock_fd;
+        send_comp(unlock_fd);
+    } else {
+        LOG(logger_buffer, "the file %s is now locked by no client", file_to_unlock->filename);
+        file_to_unlock->locked_by = -1;
     }
 }
 
@@ -376,28 +417,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     LOG(logger_buffer, "file unlock requested for %s but the file was locked by another client", client_packet.filename);
                     DIE_NEG1(send_error(client_fd, FILE_IS_NOT_LOCKED), "send error");
                 } else {
-                    if (file_to_unlock->lock_queue_max > 0) {
-                        // give the lock to another client
-                        FD_CLR(file_to_unlock->lock_queue_max, &file_to_unlock->lock_queue);
-                        int unlock_fd = file_to_unlock->lock_queue_max;
-
-                        LOG(logger_buffer, "the mutual exclusion of the file %s is given to %d", file_to_unlock->filename, unlock_fd);
-
-                        // re calculate the maximum of the set
-                        for (int i = file_to_unlock->lock_queue_max; i >= 0; --i) {
-                            if (FD_ISSET(i, &file_to_unlock->lock_queue)) {
-                                file_to_unlock->lock_queue_max = i;
-                            }
-                        }
-                        if (file_to_unlock->lock_queue_max == unlock_fd) {
-                            file_to_unlock->lock_queue_max = 0;
-                        }
-                        file_to_unlock->locked_by = unlock_fd;
-                        send_comp(unlock_fd);
-                    } else {
-                        LOG(logger_buffer, "the file %s is now locked by no client", file_to_unlock->filename);
-                        file_to_unlock->locked_by = -1;
-                    }
+                    unlock_file(file_to_unlock, logger_buffer);
                 }
             }
             write_unlock(storage_lock);
@@ -428,7 +448,9 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     FD_CLR(client_fd, &file_to_close->opened_by);
 
                     // if the client is the owner of the lock, then unlock the file
-                    //TODO unlock the file
+                    if (file_to_close->locked_by == client_fd) {
+                        unlock_file(file_to_close, logger_buffer);
+                    }
 
                     send_comp(client_fd);
                 }
@@ -462,9 +484,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                         // remove the file from the storage and then free the associated memoty
                         // then send completion packet
                         DIE_NEG1(remove_file_from_storage(file_storage, file_to_remove), "remove_file_from_storage");
-                        destroy_vfile(file_to_remove);
 
-                        //TODO fail any pending locks for this file
+                        // fail any pending locks for this file
+                        flush_lock_queue(&file_to_remove->lock_queue, file_to_remove->lock_queue_max, logger_buffer);
+                        destroy_vfile(file_to_remove);
                         send_comp(client_fd);
                     }
                 }
