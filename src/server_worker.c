@@ -77,8 +77,11 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             client_cleanup(file_storage, client_fd);
 
             // finally close the client fd
-            // (and do not send it back to the server)
             close(client_fd);
+
+            // send back -1 to the main thread so that we con notify that the client disconnected
+            int neg1 = -1;
+            DIE_NEG1(writen(worker_to_master_pipe, &neg1, sizeof(int)), "writen");
 
             // return to listening on the buffer
             continue;
@@ -201,7 +204,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     LOG(logger_buffer, "file removal requested for %s but the file is already locked by client %d", client_packet.filename, file_to_remove->locked_by);
                     DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
                 } else {
+                    // remove the file from the storage and then free the associated memoty
+                    // then send completion packet
                     DIE_NEG1(remove_file_from_storage(file_storage, file_to_remove), "remove_file_from_storage");
+                    destroy_vfile(file_to_remove);
                     send_comp(client_fd);
                 }
             }
@@ -211,7 +217,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             break;
         }
 
-        writen(worker_to_master_pipe, &client_fd, sizeof(int));
+        // destroy the received packet
+        destroy_packet(&client_packet);
+        // the request terminated, so return to the main thread the fd of the client
+        DIE_NEG1(writen(worker_to_master_pipe, &client_fd, sizeof(int)), "writen");
     }
 }
 
