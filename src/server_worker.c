@@ -49,22 +49,22 @@ static void flush_lock_queue(fd_set* queue, int fd_max, usbuf_t* logger_buffer)
 }
 
 /**
- * Send to the client ejected files (possibly 0) until space_needed
- * bytes are available to use in the storage
+ * Eject one victim file from the storage.
+ * If client_fd is negative, then the file is deleted, otherwise is sent to client_fd
 */
-static void eject_files(int client_fd, long space_needed, long max_storage_size, file_storage_t* storage, usbuf_t* logger_buffer, vfile_t* file_to_exclude)
+static void eject_one_file(int client_fd, file_storage_t* storage, usbuf_t* logger_buffer, vfile_t* file_to_exclude)
 {
-    while (storage->total_size + space_needed > max_storage_size) {
-        vfile_t* victim;
-        DIE_NULL(victim = choose_victim_file(storage, file_to_exclude), "choose_victim_file");
+    vfile_t* victim;
+    DIE_NULL(victim = choose_victim_file(storage, file_to_exclude), "choose_victim_file");
 
-        // fail any lock operation on the file
-        flush_lock_queue(&victim->lock_queue, victim->lock_queue_max, logger_buffer);
+    // fail any lock operation on the file
+    flush_lock_queue(&victim->lock_queue, victim->lock_queue_max, logger_buffer);
 
-        remove_file_from_storage(storage, victim);
+    remove_file_from_storage(storage, victim);
 
-        LOG(logger_buffer, "replacement: sending %s to client %d, the new free space of the storage is %ld",
-            victim->filename, client_fd, max_storage_size - storage->total_size);
+    if (client_fd >= 0) {
+        LOG(logger_buffer, "replacement: sending %s to client %d, the new total size of the storage is %ld with %d files",
+            victim->filename, client_fd, storage->total_size, storage->num_files);
 
         // send the file to the client
         struct packet file_packet;
@@ -75,8 +75,22 @@ static void eject_files(int client_fd, long space_needed, long max_storage_size,
         file_packet.data = victim->data;
 
         DIE_NEG(send_packet(client_fd, &file_packet), "send_packet");
+    } else {
+        LOG(logger_buffer, "replacement: deleting %s, the new total size of the storage is %ld with %d files",
+            victim->filename, storage->total_size, storage->num_files);
+    }
 
-        DIE_NEG1(destroy_vfile(victim), "destroy_vfile");
+    DIE_NEG1(destroy_vfile(victim), "destroy_vfile");
+}
+
+/**
+ * Send to the client ejected files (possibly 0) until space_needed
+ * bytes are available to use in the storage
+*/
+static void eject_files(int client_fd, long space_needed, long max_storage_size, file_storage_t* storage, usbuf_t* logger_buffer, vfile_t* file_to_exclude)
+{
+    while (storage->total_size + space_needed > max_storage_size) {
+        eject_one_file(client_fd, storage, logger_buffer, file_to_exclude);
     }
 }
 
@@ -170,7 +184,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     // if the flag O_CREATE is set then create the file, else send
                     // an error to the client
                     if (client_packet.flags & O_CREATE) {
-                        // TODO delete victim file if the number of files exceed max_num_files
+                        if (file_storage->num_files + 1 > max_num_files) {
+                            // delete one file from the storage
+                            eject_one_file(-1, file_storage, logger_buffer, NULL);
+                        }
                         LOG(logger_buffer, "creating file %s", client_packet.filename);
                         DIE_NULL(file_to_open = create_vfile(), "create vfile");
                         file_to_open->filename = client_packet.filename;
