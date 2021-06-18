@@ -317,6 +317,9 @@ void print_error_code(char error_code, const char* context)
     case FILE_IS_TOO_BIG:
         fprintf(stderr, "%s: file is too big\n", context);
         break;
+    case FILE_IS_NOT_LOCKED:
+        fprintf(stderr, "%s: file is not locked\n", context);
+        break;
     default:
         fprintf(stderr, "%s: invalid error code\n", context);
         break;

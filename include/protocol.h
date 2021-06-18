@@ -35,7 +35,8 @@ enum err_codes {
     FILE_IS_LOCKED_BY_ANOTHER_CLIENT,
     FILE_IS_NOT_OPENED,
     FILE_WAS_ALREADY_WRITTEN,
-    FILE_IS_TOO_BIG
+    FILE_IS_TOO_BIG,
+    FILE_IS_NOT_LOCKED
 };
 
 enum flags {
