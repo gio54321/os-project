@@ -180,7 +180,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
 
 int readNFiles(int n, const char* dirname)
 {
-    if (dirname == NULL || n < -1) {
+    if (dirname == NULL) {
         errno = EINVAL;
         return -1;
     }

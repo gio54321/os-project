@@ -302,7 +302,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             read_lock(storage_lock);
             // the client only allows the values of cout to be either a positive
             // integer or -1
-            if (client_packet.count == -1) {
+            if (client_packet.count <= 0) {
                 // -1 means read all files
                 client_packet.count = file_storage->num_files;
             }
