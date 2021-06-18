@@ -11,11 +11,6 @@
 #include "unbounded_shared_buffer.h"
 #include "utils.h"
 
-static int client_cleanup(file_storage_t* file_storage, int client_fd)
-{
-    return 0;
-}
-
 static int send_error(int client_fd, char err_code)
 {
     struct packet err_packet;
@@ -119,6 +114,40 @@ static void unlock_file(vfile_t* file_to_unlock, usbuf_t* logger_buffer)
         file_to_unlock->locked_by = -1;
     }
 }
+/**
+ * Clean up the storage when one client disconnected
+ * this means unlocking all the files locked, all the files opened
+ * and possibly removing it from a lock queue. After this call it is safe
+ * to close the file descriptor, so that it can be reused for other clients
+ */
+static void client_cleanup(file_storage_t* file_storage, int client_fd, usbuf_t* logger_buffer)
+{
+    for (vfile_t* curr_file = file_storage->first; curr_file != NULL; curr_file = curr_file->next) {
+        if (curr_file->locked_by == client_fd) {
+            LOG(logger_buffer, "unlocking file %s that was locked by client %d", curr_file->filename, client_fd);
+            unlock_file(curr_file, logger_buffer);
+        }
+        if (FD_ISSET(client_fd, &curr_file->opened_by)) {
+            LOG(logger_buffer, "closing file %s that was opened by client %d", curr_file->filename, client_fd);
+            FD_CLR(client_fd, &curr_file->opened_by);
+        }
+        if (FD_ISSET(client_fd, &curr_file->lock_queue)) {
+            LOG(logger_buffer, "removing client %d from the lock queue of file %s", client_fd, curr_file->filename);
+            FD_CLR(client_fd, &curr_file->lock_queue);
+            bool changed = false;
+            for (int i = curr_file->lock_queue_max; i >= 0; --i) {
+                if (FD_ISSET(i, &curr_file->lock_queue)) {
+                    curr_file->lock_queue_max = i;
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) {
+                curr_file->lock_queue_max = 0;
+            }
+        }
+    }
+}
 
 static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 {
@@ -156,13 +185,19 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             // the client disconnected
             LOG(logger_buffer, "client %d disconnected, cleaning up the storage", client_fd);
 
+            write_lock(storage_lock);
+
             // cleanup the client fd in the entire structure before closing the
             // file descriptor. This prevents any possibility of any data race
             // caused by another client connecting with the same fd.
-            client_cleanup(file_storage, client_fd);
+            client_cleanup(file_storage, client_fd, logger_buffer);
+
+            LOG(logger_buffer, "cleanup for client %d completed", client_fd);
 
             // finally close the client fd
             close(client_fd);
+
+            write_unlock(storage_lock);
 
             // send back -1 to the main thread so that we con notify that the client disconnected
             int neg1 = -1;
