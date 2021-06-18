@@ -35,6 +35,34 @@ static void send_comp(int client_fd)
     DIE_NEG(send_packet(client_fd, &err_packet), "send packet");
 }
 
+/**
+ * Send to the client a minimum of 1 file, until space_needed
+ * bytes are available to use in the storage
+*/
+static void eject_files(int client_fd, long space_needed, long max_storage_size, file_storage_t* storage)
+{
+    do {
+        vfile_t* victim;
+        DIE_NULL(victim = choose_victim_file(storage), "choose_victim_file");
+
+        remove_file_from_storage(storage, victim);
+
+        // send the file to the client
+        struct packet file_packet;
+        file_packet.op = FILE_P;
+        file_packet.name_length = strlen(victim->filename);
+        file_packet.filename = victim->filename;
+        file_packet.data_size = victim->size;
+        file_packet.data = victim->data;
+
+        DIE_NEG(send_packet(client_fd, &file_packet), "send_packet");
+        //TODO remove clients from the lock queue
+
+        DIE_NEG1(destroy_vfile(victim), "destroy_vfile");
+
+    } while (storage->total_size + space_needed > max_storage_size);
+}
+
 static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 {
     usbuf_t* master_to_workers_buf = worker_args->master_to_workers_buffer;
@@ -174,6 +202,30 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             read_unlock(storage_lock);
             break;
         case READ_N_FILES:
+            LOG(logger_buffer, "client %d requested to read %d files", client_fd, client_packet.count);
+            read_lock(storage_lock);
+            // the client only allows the values of cout to be either a positive
+            // integer or -1
+            if (client_packet.count == -1) {
+                // -1 means read all files
+                client_packet.count = file_storage->num_files;
+            }
+            vfile_t* curr_file = file_storage->first;
+            for (long i = 0; i < client_packet.count && curr_file != NULL; ++i) {
+                printf("%s\n", curr_file->filename);
+                struct packet file_packet;
+                clear_packet(&file_packet);
+                file_packet.op = FILE_P;
+                file_packet.name_length = strlen(curr_file->filename);
+                file_packet.filename = curr_file->filename;
+                file_packet.data_size = curr_file->size;
+                file_packet.data = curr_file->data;
+                DIE_NEG(send_packet(client_fd, &file_packet), "send_packet");
+                curr_file = curr_file->next;
+            }
+            printf("send completed\n");
+            send_comp(client_fd);
+            read_unlock(storage_lock);
             break;
         case WRITE_FILE:
             break;
@@ -184,6 +236,37 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
         case UNLOCK_FILE:
             break;
         case CLOSE_FILE:
+            LOG(logger_buffer, "client %d requested to close %s", client_fd, client_packet.filename);
+            write_lock(storage_lock);
+            vfile_t* file_to_close = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
+            if (file_to_close == NULL) {
+                if (errno = ENOENT) {
+                    // file does not exists in the storage
+                    LOG(logger_buffer, "file removal requested for %s but the file does not exist in the storage", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                } else {
+                    perror("get file from name");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                // the file lockedBy can be ignored for the close operation
+                // check if the file is actually opened by the client
+                if (!FD_ISSET(client_fd, &file_to_close->opened_by)) {
+                    // file is not opened by the client, send error
+                    LOG(logger_buffer, "file removal requested for %s but the file is not opened by the client %d", client_packet.filename, file_to_close->locked_by);
+                    DIE_NEG1(send_error(client_fd, FILE_IS_NOT_OPENED), "send error");
+                } else {
+                    // remove the client from the file's open set
+                    // then send completion packet
+                    FD_CLR(client_fd, &file_to_close->opened_by);
+
+                    // if the client is the owner of the lock, then unlock the file
+                    //TODO unlock the file
+
+                    send_comp(client_fd);
+                }
+            }
+            write_unlock(storage_lock);
             break;
         case REMOVE_FILE:
             LOG(logger_buffer, "client %d requested to remove %s", client_fd, client_packet.filename);
@@ -204,11 +287,19 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     LOG(logger_buffer, "file removal requested for %s but the file is already locked by client %d", client_packet.filename, file_to_remove->locked_by);
                     DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
                 } else {
-                    // remove the file from the storage and then free the associated memoty
-                    // then send completion packet
-                    DIE_NEG1(remove_file_from_storage(file_storage, file_to_remove), "remove_file_from_storage");
-                    destroy_vfile(file_to_remove);
-                    send_comp(client_fd);
+                    if (!FD_ISSET(client_fd, &file_to_remove->opened_by)) {
+                        // file is not opened by the client, send error
+                        LOG(logger_buffer, "file removal requested for %s but the file is not opened by the client", client_packet.filename);
+                        DIE_NEG1(send_error(client_fd, FILE_IS_NOT_OPENED), "send error");
+                    } else {
+                        // remove the file from the storage and then free the associated memoty
+                        // then send completion packet
+                        DIE_NEG1(remove_file_from_storage(file_storage, file_to_remove), "remove_file_from_storage");
+                        destroy_vfile(file_to_remove);
+
+                        //TODO fail any pending locks for this file
+                        send_comp(client_fd);
+                    }
                 }
             }
             write_unlock(storage_lock);
