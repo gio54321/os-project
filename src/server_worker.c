@@ -39,15 +39,16 @@ static void send_comp(int client_fd)
  * Send to the client ejected files (possibly 0) until space_needed
  * bytes are available to use in the storage
 */
-static void eject_files(int client_fd, long space_needed, long max_storage_size, file_storage_t* storage, usbuf_t* logger_buffer)
+static void eject_files(int client_fd, long space_needed, long max_storage_size, file_storage_t* storage, usbuf_t* logger_buffer, vfile_t* file_to_exclude)
 {
     while (storage->total_size + space_needed > max_storage_size) {
         vfile_t* victim;
-        DIE_NULL(victim = choose_victim_file(storage), "choose_victim_file");
+        DIE_NULL(victim = choose_victim_file(storage, file_to_exclude), "choose_victim_file");
 
         remove_file_from_storage(storage, victim);
 
-        LOG(logger_buffer, "replacement: sending %s to client %d, the new free space of the storage is %ld", victim->filename, client_fd, max_storage_size - storage->total_size);
+        LOG(logger_buffer, "replacement: sending %s to client %d, the new free space of the storage is %ld",
+            victim->filename, client_fd, max_storage_size - storage->total_size);
 
         // send the file to the client
         struct packet file_packet;
@@ -254,10 +255,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                         if (client_packet.data_size > max_storage_size) {
                             // the file is locked by another client
                             LOG(logger_buffer, "file write requested for %s but the file is too big (%ld bytes)", client_packet.filename, client_packet.data_size);
-                            DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                            DIE_NEG1(send_error(client_fd, FILE_IS_TOO_BIG), "send error");
                         } else {
                             // eject files
-                            eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer);
+                            eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer, NULL);
 
                             // write the data to the file
                             file_to_write->size = client_packet.data_size;
@@ -277,10 +278,132 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             write_unlock(storage_lock);
             break;
         case APPEND_TO_FILE:
+            LOG(logger_buffer, "client %d requested to append to %s", client_fd, client_packet.filename);
+            write_lock(storage_lock);
+            vfile_t* file_to_append = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
+            if (file_to_append == NULL) {
+                if (errno = ENOENT) {
+                    // file does not exists in the storage
+                    LOG(logger_buffer, "file append requested for %s but the file does not exist in the storage", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                } else {
+                    perror("get file from name");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                if (file_to_append->locked_by != client_fd && file_to_append->locked_by != -1) {
+                    // the file is locked by another client
+                    LOG(logger_buffer, "file append requested for %s but the file is already locked by client %d", client_packet.filename, file_to_read->locked_by);
+                    DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                } else {
+                    if (client_packet.data_size + file_to_append->size > max_storage_size) {
+                        // the file is locked by another client
+                        LOG(logger_buffer, "file append requested for %s but the data is too big (%ld bytes)", client_packet.filename, client_packet.data_size);
+                        DIE_NEG1(send_error(client_fd, FILE_IS_TOO_BIG), "send error");
+                    } else {
+                        // eject files
+                        eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer, file_to_append);
+
+                        // append the data to the file
+                        size_t offset = file_to_append->size;
+                        file_to_append->size += client_packet.data_size;
+                        DIE_NULL(file_to_append->data = realloc(file_to_append->data, file_to_append->size), "realloc");
+                        memcpy(file_to_append->data + offset, client_packet.data, client_packet.data_size);
+
+                        // increment the total storage size
+                        file_storage->total_size += client_packet.data_size;
+
+                        send_comp(client_fd);
+                        LOG(logger_buffer, "%ld bytes appended by client %d into file %s", client_packet.data_size, client_fd, client_packet.filename);
+                    }
+                }
+            }
+
+            write_unlock(storage_lock);
             break;
         case LOCK_FILE:
+            LOG(logger_buffer, "client %d requested to lock %s", client_fd, client_packet.filename);
+            printf("LOCK\n");
+            write_lock(storage_lock);
+            vfile_t* file_to_lock = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
+            if (file_to_lock == NULL) {
+                if (errno = ENOENT) {
+                    // file does not exists in the storage
+                    LOG(logger_buffer, "file lock requested for %s but the file does not exist in the storage", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                } else {
+                    perror("get file from name");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                if (file_to_lock->locked_by == client_fd) {
+                    // the file has been written already, so the write operation is invalid
+                    LOG(logger_buffer, "file lock requested for %s but the file was already locked by the client", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_ALREADY_LOCKED), "send error");
+                } else {
+                    printf("locked by %d\n", file_to_lock->locked_by);
+                    if (file_to_lock->locked_by == -1) {
+                        file_to_lock->locked_by = client_fd;
+                        send_comp(client_fd);
+                        printf("locked by %d\n", file_to_lock->locked_by);
+                    } else {
+                        // put the client fd into the lock waiting queue
+                        FD_SET(client_fd, &file_to_lock->lock_queue);
+                        if (client_fd > file_to_lock->lock_queue_max) {
+                            file_to_lock->lock_queue_max = client_fd;
+                        }
+                        // NB: do not send comp, the operation does not complete until
+                        // the owner of the lock releases it
+                    }
+                }
+            }
+            write_unlock(storage_lock);
             break;
         case UNLOCK_FILE:
+            LOG(logger_buffer, "client %d requested to unlock %s", client_fd, client_packet.filename);
+            write_lock(storage_lock);
+            vfile_t* file_to_unlock = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
+            if (file_to_unlock == NULL) {
+                if (errno = ENOENT) {
+                    // file does not exists in the storage
+                    LOG(logger_buffer, "file unlock requested for %s but the file does not exist in the storage", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                } else {
+                    perror("get file from name");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                send_comp(client_fd);
+                if (file_to_unlock->locked_by != client_fd) {
+                    // the file has been written already, so the write operation is invalid
+                    LOG(logger_buffer, "file unlock requested for %s but the file was locked by another client", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_IS_NOT_LOCKED), "send error");
+                } else {
+                    if (file_to_unlock->lock_queue_max > 0) {
+                        // give the lock to another client
+                        FD_CLR(file_to_unlock->lock_queue_max, &file_to_unlock->lock_queue);
+                        int unlock_fd = file_to_unlock->lock_queue_max;
+
+                        LOG(logger_buffer, "the mutual exclusion of the file %s is given to %d", file_to_unlock->filename, unlock_fd);
+
+                        // re calculate the maximum of the set
+                        for (int i = file_to_unlock->lock_queue_max; i >= 0; --i) {
+                            if (FD_ISSET(i, &file_to_unlock->lock_queue)) {
+                                file_to_unlock->lock_queue_max = i;
+                            }
+                        }
+                        if (file_to_unlock->lock_queue_max == unlock_fd) {
+                            file_to_unlock->lock_queue_max = 0;
+                        }
+                        file_to_unlock->locked_by = unlock_fd;
+                        send_comp(unlock_fd);
+                    } else {
+                        LOG(logger_buffer, "the file %s is now locked by no client", file_to_unlock->filename);
+                        file_to_unlock->locked_by = -1;
+                    }
+                }
+            }
+            write_unlock(storage_lock);
             break;
         case CLOSE_FILE:
             LOG(logger_buffer, "client %d requested to close %s", client_fd, client_packet.filename);

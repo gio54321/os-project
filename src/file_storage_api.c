@@ -246,10 +246,124 @@ int writeFile(const char* pathname, const char* dirname)
     free(buf);
     return receive_files_from_server(dirname, "writeFile");
 }
-int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname);
+int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname)
+{
+    if (pathname == NULL || dirname == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
 
-int lockFile(const char* pathname);
-int unlockFile(const char* pathname);
+    // send the request to the server
+    struct packet request;
+    clear_packet(&request);
+    request.op = APPEND_TO_FILE;
+    request.data_size = size;
+    request.data = buf;
+    request.name_length = strlen(pathname);
+    request.filename = malloc((strlen(pathname) + 1) * sizeof(char));
+    if (request.filename == NULL) {
+        errno = ENOMEM;
+        free(buf);
+        return -1;
+    }
+    strcpy(request.filename, pathname);
+    int send_res = send_packet(socket_fd, &request);
+    if (send_res <= 0) {
+        errno = EIO;
+        return -1;
+    }
+
+    return receive_files_from_server(dirname, "writeFile");
+}
+
+int lockFile(const char* pathname)
+{
+    if (pathname == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    // send the request to the server
+    struct packet request;
+    clear_packet(&request);
+    request.op = LOCK_FILE;
+    request.name_length = strlen(pathname);
+    request.filename = malloc((strlen(pathname) + 1) * sizeof(char));
+    if (request.filename == NULL) {
+        errno = ENOMEM;
+        return -1;
+    }
+    strcpy(request.filename, pathname);
+    int send_res = send_packet(socket_fd, &request);
+    if (send_res <= 0) {
+        errno = EIO;
+        return -1;
+    }
+    free(request.filename);
+
+    // receive the response
+    struct packet response;
+    clear_packet(&response);
+    int receive_res = receive_packet(socket_fd, &response);
+    if (receive_res <= 0) {
+        errno = EIO;
+        return -1;
+    }
+    // if the response is COMP then the operation terminated successfully
+    if (response.op == COMP) {
+        return 0;
+    }
+
+    // if the response is an error then print it to stderr
+    if (response.op == ERROR) {
+        print_error_code(response.err_code, "lockFile");
+    }
+    errno = EBADE;
+    return -1;
+}
+int unlockFile(const char* pathname)
+{
+    if (pathname == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    // send the request to the server
+    struct packet request;
+    clear_packet(&request);
+    request.op = UNLOCK_FILE;
+    request.name_length = strlen(pathname);
+    request.filename = malloc((strlen(pathname) + 1) * sizeof(char));
+    if (request.filename == NULL) {
+        errno = ENOMEM;
+        return -1;
+    }
+    strcpy(request.filename, pathname);
+    int send_res = send_packet(socket_fd, &request);
+    if (send_res <= 0) {
+        errno = EIO;
+        return -1;
+    }
+    free(request.filename);
+
+    // receive the response
+    struct packet response;
+    clear_packet(&response);
+    int receive_res = receive_packet(socket_fd, &response);
+    if (receive_res <= 0) {
+        errno = EIO;
+        return -1;
+    }
+    // if the response is COMP then the operation terminated successfully
+    if (response.op == COMP) {
+        return 0;
+    }
+
+    // if the response is an error then print it to stderr
+    if (response.op == ERROR) {
+        print_error_code(response.err_code, "lockFile");
+    }
+    errno = EBADE;
+    return -1;
+}
 
 int closeFile(const char* pathname)
 {
