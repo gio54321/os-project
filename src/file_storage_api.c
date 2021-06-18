@@ -11,7 +11,7 @@
 // global socket fd
 int socket_fd = -1;
 
-static int receive_files_from_server(const char* dirname)
+static int receive_files_from_server(const char* dirname, const char* error_context)
 {
     for (;;) {
         // receive the response
@@ -29,7 +29,7 @@ static int receive_files_from_server(const char* dirname)
 
         // if the response is an error then print it to stderr
         if (response.op == ERROR) {
-            print_error_code(response.err_code, "receive files form server");
+            print_error_code(response.err_code, error_context);
             errno = EBADE;
             return -1;
         }
@@ -196,10 +196,56 @@ int readNFiles(int n, const char* dirname)
     }
     printf("RECEIVED\n");
 
-    return receive_files_from_server(dirname);
+    return receive_files_from_server(dirname, "readNFiles");
 }
 
-int writeFile(const char* pathname, const char* dirname);
+int writeFile(const char* pathname, const char* dirname)
+{
+    if (pathname == NULL || dirname == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    // open the file pointed by pathname
+    FILE* f = fopen(pathname, "rb");
+
+    // calculate the size of the file
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    void* buf = malloc(fsize);
+    if (buf == NULL) {
+        errno = ENOMEM;
+        return -1;
+    }
+    fread(buf, sizeof(char), fsize, f);
+    fclose(f);
+
+    // send the request to the server
+    struct packet request;
+    clear_packet(&request);
+    request.op = WRITE_FILE;
+    request.data_size = fsize;
+    request.data = buf;
+    request.name_length = strlen(pathname);
+    request.filename = malloc((strlen(pathname) + 1) * sizeof(char));
+    if (request.filename == NULL) {
+        errno = ENOMEM;
+        free(buf);
+        return -1;
+    }
+    strcpy(request.filename, pathname);
+    int send_res = send_packet(socket_fd, &request);
+    if (send_res <= 0) {
+        errno = EIO;
+        free(buf);
+        return -1;
+    }
+
+    free(buf);
+    return receive_files_from_server(dirname, "writeFile");
+}
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname);
 
 int lockFile(const char* pathname);

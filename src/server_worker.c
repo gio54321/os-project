@@ -36,16 +36,18 @@ static void send_comp(int client_fd)
 }
 
 /**
- * Send to the client a minimum of 1 file, until space_needed
+ * Send to the client ejected files (possibly 0) until space_needed
  * bytes are available to use in the storage
 */
-static void eject_files(int client_fd, long space_needed, long max_storage_size, file_storage_t* storage)
+static void eject_files(int client_fd, long space_needed, long max_storage_size, file_storage_t* storage, usbuf_t* logger_buffer)
 {
-    do {
+    while (storage->total_size + space_needed > max_storage_size) {
         vfile_t* victim;
         DIE_NULL(victim = choose_victim_file(storage), "choose_victim_file");
 
         remove_file_from_storage(storage, victim);
+
+        LOG(logger_buffer, "replacement: sending %s to client %d, the new free space of the storage is %ld", victim->filename, client_fd, max_storage_size - storage->total_size);
 
         // send the file to the client
         struct packet file_packet;
@@ -59,8 +61,7 @@ static void eject_files(int client_fd, long space_needed, long max_storage_size,
         //TODO remove clients from the lock queue
 
         DIE_NEG1(destroy_vfile(victim), "destroy_vfile");
-
-    } while (storage->total_size + space_needed > max_storage_size);
+    }
 }
 
 static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
@@ -127,6 +128,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     // if the flag O_CREATE is set then create the file, else send
                     // an error to the client
                     if (client_packet.flags & O_CREATE) {
+                        // TODO delete victim file if the number of files exceed max_num_files
                         LOG(logger_buffer, "creating file %s", client_packet.filename);
                         DIE_NULL(file_to_open = create_vfile(), "create vfile");
                         file_to_open->filename = client_packet.filename;
@@ -202,7 +204,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             read_unlock(storage_lock);
             break;
         case READ_N_FILES:
-            LOG(logger_buffer, "client %d requested to read %d files", client_fd, client_packet.count);
+            LOG(logger_buffer, "client %d requested to read %ld files", client_fd, client_packet.count);
             read_lock(storage_lock);
             // the client only allows the values of cout to be either a positive
             // integer or -1
@@ -212,7 +214,6 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             }
             vfile_t* curr_file = file_storage->first;
             for (long i = 0; i < client_packet.count && curr_file != NULL; ++i) {
-                printf("%s\n", curr_file->filename);
                 struct packet file_packet;
                 clear_packet(&file_packet);
                 file_packet.op = FILE_P;
@@ -223,11 +224,57 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 DIE_NEG(send_packet(client_fd, &file_packet), "send_packet");
                 curr_file = curr_file->next;
             }
-            printf("send completed\n");
             send_comp(client_fd);
             read_unlock(storage_lock);
             break;
         case WRITE_FILE:
+            LOG(logger_buffer, "client %d requested to write %s", client_fd, client_packet.filename);
+            write_lock(storage_lock);
+            vfile_t* file_to_write = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
+            if (file_to_write == NULL) {
+                if (errno = ENOENT) {
+                    // file does not exists in the storage
+                    LOG(logger_buffer, "file write requested for %s but the file does not exist in the storage", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                } else {
+                    perror("get file from name");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                if (file_to_write->size != 0) {
+                    // the file has been written already, so the write operation is invalid
+                    LOG(logger_buffer, "file write requested for %s but the file has already been written to", client_packet.filename);
+                    DIE_NEG1(send_error(client_fd, FILE_WAS_ALREADY_WRITTEN), "send error");
+                } else {
+                    if (file_to_write->locked_by != client_fd && file_to_write->locked_by != -1) {
+                        // the file is locked by another client
+                        LOG(logger_buffer, "file write requested for %s but the file is already locked by client %d", client_packet.filename, file_to_read->locked_by);
+                        DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                    } else {
+                        if (client_packet.data_size > max_storage_size) {
+                            // the file is locked by another client
+                            LOG(logger_buffer, "file write requested for %s but the file is too big (%ld bytes)", client_packet.filename, client_packet.data_size);
+                            DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                        } else {
+                            // eject files
+                            eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer);
+
+                            // write the data to the file
+                            file_to_write->size = client_packet.data_size;
+                            file_to_write->data = client_packet.data;
+                            client_packet.data = NULL;
+
+                            // increment the total storage size
+                            file_storage->total_size += client_packet.data_size;
+
+                            send_comp(client_fd);
+                            LOG(logger_buffer, "%ld bytes written by client %d into file %s", client_packet.data_size, client_fd, client_packet.filename);
+                        }
+                    }
+                }
+            }
+
+            write_unlock(storage_lock);
             break;
         case APPEND_TO_FILE:
             break;
