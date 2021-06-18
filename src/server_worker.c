@@ -323,7 +323,6 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             break;
         case LOCK_FILE:
             LOG(logger_buffer, "client %d requested to lock %s", client_fd, client_packet.filename);
-            printf("LOCK\n");
             write_lock(storage_lock);
             vfile_t* file_to_lock = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_lock == NULL) {
@@ -341,11 +340,9 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     LOG(logger_buffer, "file lock requested for %s but the file was already locked by the client", client_packet.filename);
                     DIE_NEG1(send_error(client_fd, FILE_ALREADY_LOCKED), "send error");
                 } else {
-                    printf("locked by %d\n", file_to_lock->locked_by);
                     if (file_to_lock->locked_by == -1) {
                         file_to_lock->locked_by = client_fd;
                         send_comp(client_fd);
-                        printf("locked by %d\n", file_to_lock->locked_by);
                     } else {
                         // put the client fd into the lock waiting queue
                         FD_SET(client_fd, &file_to_lock->lock_queue);
