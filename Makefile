@@ -10,7 +10,7 @@ CFLAGS = -Wall -pedantic -std=gnu17 \
 LIBS = -lpthread
 
 _OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
-	   utils logger thread_pool rw_lock compression server_worker
+	   utils logger thread_pool rw_lock compression server_worker file_storage_api
 TEST_OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
 	   utils logger thread_pool rw_lock compression
 CONCURRENT_OBJ = unbounded_shared_buffer logger thread_pool rw_lock
@@ -24,7 +24,7 @@ RUNCTESTS = $(patsubst %,run_%_ctest,$(CONCURRENT_OBJ))
 
 .PHONY: all tests run-all-tests run-tests run-ctests clean
 
-all: $(OBJ) $(BINDIR)/server 
+all: $(OBJ) $(BINDIR)/server $(BINDIR)/client
 
 clean:
 	rm -f $(OBJ) $(TESTS) $(CTESTS)
@@ -68,6 +68,13 @@ $(OBJDIR)/server_worker.o: $(SRCDIR)/server_worker.c $(IDIR)/server_worker.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/server: $(SRCDIR)/server.c $(OBJ)
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
+
+$(OBJDIR)/file_storage_api.o: $(SRCDIR)/file_storage_api.c $(IDIR)/file_storage_api.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# TODO separate client objs from server objs
+$(OBJDIR)/client: $(SRCDIR)/client.c $(OBJ)
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
 # generic rule for all tests
