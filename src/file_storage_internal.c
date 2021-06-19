@@ -33,6 +33,12 @@ file_storage_t* create_file_storage(enum file_replacement_policy replacement_pol
     storage->num_files = 0;
     storage->total_size = 0;
     storage->replacement_policy = replacement_policy;
+
+    //initialize the statistics values
+    storage->statistics.maximum_num_files = 0;
+    storage->statistics.maximum_size_reached = 0;
+    storage->statistics.num_replacements = 0;
+
     return storage;
 }
 

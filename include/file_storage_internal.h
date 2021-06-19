@@ -31,6 +31,12 @@ typedef struct vfile {
     void* data;
 } vfile_t;
 
+struct file_storage_statistics {
+    size_t maximum_size_reached;
+    unsigned int maximum_num_files;
+    unsigned long num_replacements;
+};
+
 typedef struct file_storage {
     struct vfile* first;
     struct vfile* last;
@@ -38,6 +44,7 @@ typedef struct file_storage {
     rw_lock_t* rw_lock;
     unsigned int num_files;
     size_t total_size;
+    struct file_storage_statistics statistics;
 } file_storage_t;
 
 /*

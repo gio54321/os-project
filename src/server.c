@@ -142,6 +142,28 @@ cleanup:
     return -1;
 }
 
+int print_statistics(file_storage_t* storage)
+{
+    if (storage == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    printf("\n================= STATISTICS =================\n");
+    printf("Maximum number of files on the server: %d\n", storage->statistics.maximum_num_files);
+    printf("Maximum size reached: %.3f (Mbyte)\n", (double)storage->statistics.maximum_size_reached / 1000);
+    printf("Number of times the replacement algorithms ran: %ld\n", storage->statistics.num_replacements);
+
+    printf("Files in the server:\n");
+    if (storage->first == NULL) {
+        printf("None\n");
+    } else {
+        for (vfile_t* curr_file = storage->first; curr_file != NULL; curr_file = curr_file->next) {
+            printf("-> %s (%ld bytes)\n", curr_file->filename, curr_file->size);
+        }
+    }
+    return 0;
+}
+
 int main(void)
 {
     int sig_handler_to_master_pipe[2];
@@ -314,6 +336,8 @@ int main(void)
     // close the logger buffer and join the logger thread
     DIE_NEG1(usbuf_close(logger_buffer), "usbuf close");
     DIE_NEG1(pthread_join(logger_tid, NULL), "pthread_join");
+
+    DIE_NEG1(print_statistics(file_storage), "print_statistics");
 
     DIE_NEG1(unlink(cfg.socketname), "unlink");
 

@@ -52,6 +52,9 @@ static void eject_one_file(int client_fd, file_storage_t* storage, usbuf_t* logg
     vfile_t* victim;
     DIE_NULL(victim = choose_victim_file(storage, file_to_exclude), "choose_victim_file");
 
+    // increment statistics for number of replacements
+    ++storage->statistics.num_replacements;
+
     // fail any lock operation on the file
     flush_lock_queue(&victim->lock_queue, victim->lock_queue_max, logger_buffer);
 
@@ -228,6 +231,11 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                         file_to_open->filename = client_packet.filename;
                         client_packet.filename = NULL;
                         DIE_NEG1(add_vfile_to_storage(file_storage, file_to_open), "add file to storage");
+
+                        // increment max of num_files if needed
+                        if (file_storage->num_files > file_storage->statistics.maximum_num_files) {
+                            file_storage->statistics.maximum_num_files = file_storage->num_files;
+                        }
                     } else {
                         LOG(logger_buffer, "file open requested for %s but the file does not exist in the storage", client_packet.filename);
                         DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
@@ -363,6 +371,11 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 
                             send_comp(client_fd);
                             LOG(logger_buffer, "%ld bytes written by client %d into file %s", client_packet.data_size, client_fd, client_packet.filename);
+
+                            // increment max of total size if needed
+                            if (file_storage->total_size > file_storage->statistics.maximum_size_reached) {
+                                file_storage->statistics.maximum_size_reached = file_storage->total_size;
+                            }
                         }
                     }
                 }
@@ -408,6 +421,11 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 
                         send_comp(client_fd);
                         LOG(logger_buffer, "%ld bytes appended by client %d into file %s", client_packet.data_size, client_fd, client_packet.filename);
+
+                        // increment max of total size if needed
+                        if (file_storage->total_size > file_storage->statistics.maximum_size_reached) {
+                            file_storage->statistics.maximum_size_reached = file_storage->total_size;
+                        }
                     }
                 }
             }
