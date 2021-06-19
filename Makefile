@@ -5,8 +5,7 @@ SRCDIR=./src
 TESTDIR=./tests
 
 CC = gcc
-CFLAGS = -Wall -pedantic -std=gnu17 \
-		-I$(IDIR) -g 
+CFLAGS = -Wall -pedantic -I$(IDIR) -g 
 LIBS = -lpthread
 
 _OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
