@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "file_storage_api.h"
@@ -56,7 +57,6 @@ static int receive_files_from_server(const char* dirname, const char* error_cont
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime)
 {
-    // TODO implement timeout logic
     struct sockaddr_un sa;
     memset(&sa, 0, sizeof(sa));
     sa.sun_family = AF_UNIX;
@@ -68,10 +68,28 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
     }
     int connect_res = connect(socket_fd, (struct sockaddr*)&sa, sizeof(struct sockaddr_un));
     if (connect_res == -1) {
-        perror("connect");
+        // wait msec milliseconds
+        usleep(msec * 1000);
+        time_t curr_time = time(NULL);
+        while (curr_time <= abstime.tv_sec) {
+            printf("Connection failed, retrying to connect...\n");
+            connect_res = connect(socket_fd, (struct sockaddr*)&sa, sizeof(struct sockaddr_un));
+            if (connect_res == 0) {
+                return 0;
+            }
+
+            // wait msec milliseconds and the recalculate current time
+            usleep(msec * 1000);
+            curr_time = time(NULL);
+        }
+        // it the function did not return earlier, then the
+        // current time exceeded the abs time, so the function returns an error
+        printf("Connection timed out, failed to connect\n");
+        errno = ETIMEDOUT;
         return -1;
+    } else {
+        return 0;
     }
-    return 0;
 }
 
 int closeConnection(const char* sockname)
