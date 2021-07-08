@@ -209,6 +209,7 @@ int recursively_visit_dir_and_write_file(const char dirname[], long* max_n)
         }
         if (errno != 0) {
             perror("readdir");
+            return -1;
         }
         if (closedir(dir) == -1) {
             perror("closedir");
