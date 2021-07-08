@@ -37,14 +37,16 @@ extern bool FILE_STORAGE_API_PRINTS_ENABLED;
  * Call the API function
  * Ignore EBADE, but exit on any other error
 */
-#define API_CALL(call, name)    \
-    do {                        \
-        errno = 0;              \
-        if (call == -1) {       \
-            if (errno != EBADE) \
-                perror(name);   \
-            exit(EXIT_FAILURE); \
-        }                       \
+#define API_CALL(call, name)             \
+    do {                                 \
+        errno = 0;                       \
+        if (call == -1) {                \
+            if (errno != EBADE) {        \
+                perror(name);            \
+                exit(EXIT_FAILURE);      \
+            }                            \
+        }                                \
+        usleep(request_interval * 1000); \
     } while (0)
 
 static void print_help(char* program_name)
@@ -122,7 +124,7 @@ static int validate_args(int argc, char* argv[])
                 fprintf(stderr, "options -t is required to have an integer argument\n");
                 return -1;
             }
-
+            request_interval = res;
         } else if (strcmp(argv[i], "-l") == 0) {
             VALIDATE_BINARY_ARG("-l")
         } else if (strcmp(argv[i], "-u") == 0) {
