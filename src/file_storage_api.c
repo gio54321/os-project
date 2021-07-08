@@ -70,7 +70,7 @@ static int receive_files_from_server(const char* dirname, const char* error_cont
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime)
 {
-    PRINT_IF_EN("open the connection to %s", sockname);
+    PRINT_IF_EN("open the connection to %s\n", sockname);
     struct sockaddr_un sa;
     memset(&sa, 0, sizeof(sa));
     sa.sun_family = AF_UNIX;
@@ -112,7 +112,7 @@ int closeConnection(const char* sockname)
         errno = EINVAL;
         return -1;
     }
-    PRINT_IF_EN("close the connection to %s", sockname);
+    PRINT_IF_EN("close the connection to %s\n", sockname);
     int close_res = close(socket_fd);
     return close_res;
 }
@@ -123,7 +123,7 @@ int openFile(const char* pathname, int flags)
         errno = EINVAL;
         return -1;
     }
-    PRINT_IF_EN("open file %s with flag O_CREATE %d and O_LOCK %d", pathname, flags & O_CREATE, flags & O_LOCK);
+    PRINT_IF_EN("open file %s with flag O_CREATE %d and O_LOCK %d\n", pathname, flags & O_CREATE, flags & O_LOCK);
 
     // send the request to the server
     struct packet request;
@@ -218,11 +218,6 @@ int readFile(const char* pathname, void** buf, size_t* size)
 
 int readNFiles(int n, const char* dirname)
 {
-    if (dirname == NULL) {
-        errno = EINVAL;
-        return -1;
-    }
-
     PRINT_IF_EN("read %d files\n", n);
 
     // send the request to the server
@@ -231,7 +226,10 @@ int readNFiles(int n, const char* dirname)
     request.op = READ_N_FILES;
     request.count = n;
     int send_res = send_packet(socket_fd, &request);
-    printf("RECEIVED\n");
+    if (send_res <= 0) {
+        errno = EIO;
+        return -1;
+    }
 
     return receive_files_from_server(dirname, "readNFiles");
 }
