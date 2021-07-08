@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -182,7 +183,7 @@ static int run_commands(int argc, char* argv[])
                 tok = strtok_r(NULL, ",", &strtok_save);
             }
         } else if (strcmp(argv[i], "-R") == 0) {
-            int n = 0;
+            long n = 0;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 ++i;
                 if (strlen(argv[i]) < 3 || argv[i][0] != 'n' || argv[i][1] != '=') {
@@ -190,12 +191,12 @@ static int run_commands(int argc, char* argv[])
                     continue;
                 }
                 int str_to_long_res = string_to_long(argv[i] + 2, &n);
-                if (str_to_long_res == -1) {
+                if (str_to_long_res == -1 || n > INT_MAX || n < INT_MIN) {
                     fprintf(stderr, "invalid argument %s\n", argv[i]);
                     continue;
                 }
             }
-            readNFiles(n, read_dirname);
+            readNFiles((int)n, read_dirname);
         } else if (strcmp(argv[i], "-l") == 0) {
             ++i;
             char* strtok_save = NULL;
