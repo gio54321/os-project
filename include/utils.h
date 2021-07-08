@@ -44,4 +44,10 @@ ssize_t writen(int fd, void* buf, size_t nbytes);
 */
 int string_to_long(const char* s, long* n);
 
+/**
+ * save file filename to dirname
+ * with content buf and size size
+ * return 0 on success and -1 on error
+*/
+int save_file_to_disk(char* dirname, char* filename, size_t size, void* buf);
 #endif
