@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -11,6 +12,14 @@
 
 // global socket fd
 int socket_fd = -1;
+
+// global bool to enable prints
+bool FILE_STORAGE_API_PRINTS_ENABLED = false;
+
+#define PRINT_IF_EN(...)                   \
+    if (FILE_STORAGE_API_PRINTS_ENABLED) { \
+        printf(__VA_ARGS__);               \
+    }
 
 static int receive_files_from_server(const char* dirname, const char* error_context)
 {
@@ -40,7 +49,6 @@ static int receive_files_from_server(const char* dirname, const char* error_cont
             strcpy(abs_path, dirname);
             abs_path[dirname_len] = '/';
             strcpy(abs_path + dirname_len + 1, response.filename);
-            printf("absolute path: %s\n", abs_path);
             if (response.data_size > 0) {
                 FILE* fd;
                 fd = fopen(abs_path, "w+");
@@ -51,12 +59,14 @@ static int receive_files_from_server(const char* dirname, const char* error_cont
                 fwrite(response.data, sizeof(char), response.data_size, fd);
                 fclose(fd);
             }
+            PRINT_IF_EN("received file %s, written to %s\n", response.filename, abs_path);
         }
     }
 }
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime)
 {
+    PRINT_IF_EN("open the connection to %s", sockname);
     struct sockaddr_un sa;
     memset(&sa, 0, sizeof(sa));
     sa.sun_family = AF_UNIX;
@@ -72,7 +82,7 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
         usleep(msec * 1000);
         time_t curr_time = time(NULL);
         while (curr_time <= abstime.tv_sec) {
-            printf("Connection failed, retrying to connect...\n");
+            PRINT_IF_EN("Connection to %s failed, retrying to connect...\n", sockname);
             connect_res = connect(socket_fd, (struct sockaddr*)&sa, sizeof(struct sockaddr_un));
             if (connect_res == 0) {
                 return 0;
@@ -84,7 +94,7 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
         }
         // it the function did not return earlier, then the
         // current time exceeded the abs time, so the function returns an error
-        printf("Connection timed out, failed to connect\n");
+        PRINT_IF_EN("Connection timed out, failed to connect\n");
         errno = ETIMEDOUT;
         return -1;
     } else {
@@ -98,6 +108,7 @@ int closeConnection(const char* sockname)
         errno = EINVAL;
         return -1;
     }
+    PRINT_IF_EN("close the connection to %s", sockname);
     int close_res = close(socket_fd);
     return close_res;
 }
@@ -108,6 +119,8 @@ int openFile(const char* pathname, int flags)
         errno = EINVAL;
         return -1;
     }
+    PRINT_IF_EN("open file %s with flag O_CREATE %d and O_LOCK %d", pathname, flags & O_CREATE, flags & O_LOCK);
+
     // send the request to the server
     struct packet request;
     clear_packet(&request);
@@ -154,6 +167,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
         errno = EINVAL;
         return -1;
     }
+
     // send the request to the server
     struct packet request;
     clear_packet(&request);
@@ -185,6 +199,8 @@ int readFile(const char* pathname, void** buf, size_t* size)
         // the buffer is already allocated on the head by the call to receive_packet
         *buf = response.data;
         *size = response.data_size;
+
+        PRINT_IF_EN("read %d bytes of the file %s\n", response.data_size, pathname);
         return 0;
     }
 
@@ -202,16 +218,15 @@ int readNFiles(int n, const char* dirname)
         errno = EINVAL;
         return -1;
     }
+
+    PRINT_IF_EN("read %d files\n", n);
+
     // send the request to the server
     struct packet request;
     clear_packet(&request);
     request.op = READ_N_FILES;
     request.count = n;
     int send_res = send_packet(socket_fd, &request);
-    if (send_res <= 0) {
-        errno = EIO;
-        return -1;
-    }
     printf("RECEIVED\n");
 
     return receive_files_from_server(dirname, "readNFiles");
@@ -240,6 +255,8 @@ int writeFile(const char* pathname, const char* dirname)
     fread(buf, sizeof(char), fsize, f);
     fclose(f);
 
+    PRINT_IF_EN("write %d bytes to the file %s\n", fsize, pathname);
+
     // send the request to the server
     struct packet request;
     clear_packet(&request);
@@ -264,12 +281,14 @@ int writeFile(const char* pathname, const char* dirname)
     free(buf);
     return receive_files_from_server(dirname, "writeFile");
 }
+
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname)
 {
     if (pathname == NULL || dirname == NULL) {
         errno = EINVAL;
         return -1;
     }
+    PRINT_IF_EN("append %d bytes to the file %s\n", size, pathname);
 
     // send the request to the server
     struct packet request;
@@ -300,6 +319,7 @@ int lockFile(const char* pathname)
         errno = EINVAL;
         return -1;
     }
+    PRINT_IF_EN("lock the file %s\n", pathname);
     // send the request to the server
     struct packet request;
     clear_packet(&request);
@@ -344,6 +364,7 @@ int unlockFile(const char* pathname)
         errno = EINVAL;
         return -1;
     }
+    PRINT_IF_EN("unlock the file %s\n", pathname);
     // send the request to the server
     struct packet request;
     clear_packet(&request);
@@ -389,6 +410,7 @@ int closeFile(const char* pathname)
         errno = EINVAL;
         return -1;
     }
+    PRINT_IF_EN("close the file %s\n", pathname);
     // send the request to the server
     struct packet request;
     clear_packet(&request);
@@ -434,6 +456,7 @@ int removeFile(const char* pathname)
         errno = EINVAL;
         return -1;
     }
+    PRINT_IF_EN("remove the file %s\n", pathname);
     // send the request to the server
     struct packet request;
     clear_packet(&request);
