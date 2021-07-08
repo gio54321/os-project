@@ -18,9 +18,10 @@ ssize_t readn(int fd, void* ptr, size_t n)
     size_t nleft;
     ssize_t nread;
 
+    char* cptr = ptr;
     nleft = n;
     while (nleft > 0) {
-        if ((nread = read(fd, ptr, nleft)) < 0) {
+        if ((nread = read(fd, cptr, nleft)) < 0) {
             if (nleft == n)
                 return -1;
             else
@@ -28,7 +29,7 @@ ssize_t readn(int fd, void* ptr, size_t n)
         } else if (nread == 0)
             break;
         nleft -= nread;
-        ptr += nread;
+        cptr += nread;
     }
     return (n - nleft);
 }
@@ -44,9 +45,10 @@ ssize_t writen(int fd, void* ptr, size_t n)
     size_t nleft;
     ssize_t nwritten;
 
+    char* cptr = ptr;
     nleft = n;
     while (nleft > 0) {
-        if ((nwritten = write(fd, ptr, nleft)) < 0) {
+        if ((nwritten = write(fd, cptr, nleft)) < 0) {
             if (nleft == n)
                 return -1;
             else
@@ -54,7 +56,7 @@ ssize_t writen(int fd, void* ptr, size_t n)
         } else if (nwritten == 0)
             break;
         nleft -= nwritten;
-        ptr += nwritten;
+        cptr += nwritten;
     }
     return (n - nleft);
 }
@@ -167,4 +169,5 @@ int save_file_to_disk(char* dirname, char* filename, size_t size, void* buf)
 
         free(abs_path);
     }
+    return 0;
 }
