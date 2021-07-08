@@ -9,6 +9,7 @@
 
 #include "file_storage_api.h"
 #include "protocol.h"
+#include "utils.h"
 
 // global socket fd
 int socket_fd = -1;
@@ -45,25 +46,12 @@ static int receive_files_from_server(const char* dirname, const char* error_cont
         }
         if (response.op == FILE_P) {
             if (dirname != NULL) {
-                size_t dirname_len = strlen(dirname);
-                char* abs_path = malloc((dirname_len + response.name_length + 2) * sizeof(char));
-                strcpy(abs_path, dirname);
-                abs_path[dirname_len] = '/';
-                strcpy(abs_path + dirname_len + 1, response.filename);
-                if (response.data_size > 0) {
-                    FILE* fd;
-                    fd = fopen(abs_path, "w+");
-                    if (fd == NULL) {
-                        return -1;
-                    }
-
-                    fwrite(response.data, sizeof(char), response.data_size, fd);
-                    fclose(fd);
-                }
-                PRINT_IF_EN("received file %s, written to %s\n", response.filename, abs_path);
+                save_file_to_disk(dirname, response.filename, response.data_size, response.data);
+                PRINT_IF_EN("received file %s, written to %s\n", response.filename, dirname);
             } else {
                 PRINT_IF_EN("received file %s, ingored\n", response.filename);
             }
+            destroy_packet(&response);
         }
     }
 }
@@ -171,6 +159,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
         errno = EINVAL;
         return -1;
     }
+    PRINT_IF_EN("read the file %s\n", pathname);
 
     // send the request to the server
     struct packet request;
@@ -270,6 +259,7 @@ int writeFile(const char* pathname, const char* dirname)
     if (request.filename == NULL) {
         errno = ENOMEM;
         free(buf);
+        free(request.filename);
         return -1;
     }
     strcpy(request.filename, pathname);
@@ -277,10 +267,12 @@ int writeFile(const char* pathname, const char* dirname)
     if (send_res <= 0) {
         errno = EIO;
         free(buf);
+        free(request.filename);
         return -1;
     }
 
     free(buf);
+    free(request.filename);
     return receive_files_from_server(dirname, "writeFile");
 }
 
