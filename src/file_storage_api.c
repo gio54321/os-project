@@ -44,22 +44,26 @@ static int receive_files_from_server(const char* dirname, const char* error_cont
             return -1;
         }
         if (response.op == FILE_P) {
-            size_t dirname_len = strlen(dirname);
-            char* abs_path = malloc((dirname_len + response.name_length + 2) * sizeof(char));
-            strcpy(abs_path, dirname);
-            abs_path[dirname_len] = '/';
-            strcpy(abs_path + dirname_len + 1, response.filename);
-            if (response.data_size > 0) {
-                FILE* fd;
-                fd = fopen(abs_path, "w+");
-                if (fd == NULL) {
-                    return -1;
-                }
+            if (dirname != NULL) {
+                size_t dirname_len = strlen(dirname);
+                char* abs_path = malloc((dirname_len + response.name_length + 2) * sizeof(char));
+                strcpy(abs_path, dirname);
+                abs_path[dirname_len] = '/';
+                strcpy(abs_path + dirname_len + 1, response.filename);
+                if (response.data_size > 0) {
+                    FILE* fd;
+                    fd = fopen(abs_path, "w+");
+                    if (fd == NULL) {
+                        return -1;
+                    }
 
-                fwrite(response.data, sizeof(char), response.data_size, fd);
-                fclose(fd);
+                    fwrite(response.data, sizeof(char), response.data_size, fd);
+                    fclose(fd);
+                }
+                PRINT_IF_EN("received file %s, written to %s\n", response.filename, abs_path);
+            } else {
+                PRINT_IF_EN("received file %s, ingored\n", response.filename);
             }
-            PRINT_IF_EN("received file %s, written to %s\n", response.filename, abs_path);
         }
     }
 }
@@ -200,7 +204,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
         *buf = response.data;
         *size = response.data_size;
 
-        PRINT_IF_EN("read %d bytes of the file %s\n", response.data_size, pathname);
+        PRINT_IF_EN("read %zd bytes of the file %s\n", response.data_size, pathname);
         return 0;
     }
 
@@ -234,7 +238,7 @@ int readNFiles(int n, const char* dirname)
 
 int writeFile(const char* pathname, const char* dirname)
 {
-    if (pathname == NULL || dirname == NULL) {
+    if (pathname == NULL) {
         errno = EINVAL;
         return -1;
     }
@@ -255,7 +259,7 @@ int writeFile(const char* pathname, const char* dirname)
     fread(buf, sizeof(char), fsize, f);
     fclose(f);
 
-    PRINT_IF_EN("write %d bytes to the file %s\n", fsize, pathname);
+    PRINT_IF_EN("write %zd bytes to the file %s\n", fsize, pathname);
 
     // send the request to the server
     struct packet request;
@@ -284,11 +288,11 @@ int writeFile(const char* pathname, const char* dirname)
 
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname)
 {
-    if (pathname == NULL || dirname == NULL) {
+    if (pathname == NULL) {
         errno = EINVAL;
         return -1;
     }
-    PRINT_IF_EN("append %d bytes to the file %s\n", size, pathname);
+    PRINT_IF_EN("append %zd bytes to the file %s\n", size, pathname);
 
     // send the request to the server
     struct packet request;
