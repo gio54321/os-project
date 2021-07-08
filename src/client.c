@@ -33,6 +33,20 @@ extern bool FILE_STORAGE_API_PRINTS_ENABLED;
         return -1;                                         \
     }
 
+/**
+ * Call the API function
+ * Ignore EBADE, but exit on any other error
+*/
+#define API_CALL(call, name)    \
+    do {                        \
+        errno = 0;              \
+        if (call == -1) {       \
+            if (errno != EBADE) \
+                perror(name);   \
+            exit(EXIT_FAILURE); \
+        }                       \
+    } while (0)
+
 static void print_help(char* program_name)
 {
     printf("Usage: %s [OPTION]\n", program_name);
@@ -179,9 +193,9 @@ int recursively_visit_dir_and_write_file(const char dirname[], long* max_n)
                 }
             } else {
                 // write the file to the server
-                openFile(abs_path, O_CREATE);
-                writeFile(abs_path, expelled_dirname);
-                closeFile(abs_path);
+                API_CALL(openFile(abs_path, O_CREATE), "openFile");
+                API_CALL(writeFile(abs_path, expelled_dirname), "writeFile");
+                API_CALL(closeFile(abs_path), "closeFile");
                 if (*max_n > 0) {
                     (*max_n)--;
                 }
@@ -244,9 +258,9 @@ static int run_commands(int argc, char* argv[])
             char* strtok_save = NULL;
             char* tok = strtok_r(argv[i], ",", &strtok_save);
             while (tok) {
-                openFile(tok, O_CREATE);
-                writeFile(tok, expelled_dirname);
-                closeFile(tok);
+                API_CALL(openFile(tok, O_CREATE), "openFile");
+                API_CALL(writeFile(tok, expelled_dirname), "writeFile");
+                API_CALL(closeFile(tok), "closeFile");
                 tok = strtok_r(NULL, ",", &strtok_save);
             }
         } else if (strcmp(argv[i], "-r") == 0) {
@@ -256,9 +270,9 @@ static int run_commands(int argc, char* argv[])
             while (tok) {
                 void* buf;
                 size_t size;
-                openFile(tok, 0);
+                API_CALL(openFile(tok, 0), "openFile");
                 int read_res = readFile(tok, &buf, &size);
-                closeFile(tok);
+                API_CALL(closeFile(tok), "closeFile");
                 if (read_res != -1 && read_dirname != NULL) {
                     int save_res = save_file_to_disk(read_dirname, tok, size, buf);
                     if (save_res == -1) {
@@ -282,15 +296,15 @@ static int run_commands(int argc, char* argv[])
                     continue;
                 }
             }
-            readNFiles((int)n, read_dirname);
+            API_CALL(readNFiles((int)n, read_dirname), "readNFiles");
         } else if (strcmp(argv[i], "-l") == 0) {
             ++i;
             char* strtok_save = NULL;
             char* tok = strtok_r(argv[i], ",", &strtok_save);
             while (tok) {
-                openFile(tok, 0);
-                lockFile(tok);
-                closeFile(tok);
+                API_CALL(openFile(tok, 0), "openFile");
+                API_CALL(lockFile(tok), "lockFile");
+                API_CALL(closeFile(tok), "closeFile");
                 tok = strtok_r(NULL, ",", &strtok_save);
             }
         } else if (strcmp(argv[i], "-u") == 0) {
@@ -298,9 +312,9 @@ static int run_commands(int argc, char* argv[])
             char* strtok_save = NULL;
             char* tok = strtok_r(argv[i], ",", &strtok_save);
             while (tok) {
-                openFile(tok, 0);
-                unlockFile(tok);
-                closeFile(tok);
+                API_CALL(openFile(tok, 0), "openFile");
+                API_CALL(unlockFile(tok), "unlockFile");
+                API_CALL(closeFile(tok), "closeFile");
                 tok = strtok_r(NULL, ",", &strtok_save);
             }
         } else if (strcmp(argv[i], "-c") == 0) {
@@ -308,8 +322,8 @@ static int run_commands(int argc, char* argv[])
             char* strtok_save = NULL;
             char* tok = strtok_r(argv[i], ",", &strtok_save);
             while (tok) {
-                openFile(tok, 0);
-                removeFile(tok);
+                API_CALL(openFile(tok, 0), "openFile");
+                API_CALL(removeFile(tok), "removeFile");
                 tok = strtok_r(NULL, ",", &strtok_save);
             }
         }
