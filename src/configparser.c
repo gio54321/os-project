@@ -164,6 +164,9 @@ config_t* get_config_from_file(const char* file_path)
     unsigned int line_number = 1;
 
     while (!eof_reached) {
+        // initialize the buffer
+        memset(buf, 0, buffer_size);
+
         // read at most buffer_size characters from file. If EOF then
         // fgets returns NULL, so we set eof_reached to true
         char* fgets_res = fgets(buf, buffer_size, fp);
