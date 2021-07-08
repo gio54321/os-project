@@ -183,8 +183,11 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 
         // receive the client request
         int receive_res;
-        DIE_NEG1(receive_res = receive_packet(client_fd, &client_packet), "receive_packet");
-        if (receive_res == 0) {
+        receive_res = receive_packet(client_fd, &client_packet);
+        if (receive_res == -1 && errno != ECONNRESET) {
+            perror("receive packet");
+            exit(EXIT_FAILURE);
+        } else if (receive_res == 0 || (receive_res == -1 && errno == ECONNRESET)) {
             // the client disconnected
             LOG(logger_buffer, "client %d disconnected, cleaning up the storage", client_fd);
 
