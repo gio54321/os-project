@@ -1,8 +1,11 @@
+#include <dirent.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 
 #include "file_storage_api.h"
@@ -140,6 +143,67 @@ static int validate_args(int argc, char* argv[])
     return 0;
 }
 
+int recursively_visit_dir_and_write_file(const char dirname[], long* max_n)
+{
+    if (*max_n != 0) {
+        DIR* dir;
+        if ((dir = opendir(dirname)) == NULL) {
+            perror("opendir");
+            return -1;
+        }
+        struct dirent* file;
+        while ((errno = 0, file = readdir(dir)) != NULL) {
+            // skip . and ..
+            if (strcmp(file->d_name, ".") == 0 || strcmp(file->d_name, "..") == 0) {
+                continue;
+            }
+
+            // calculate the absolute path
+            size_t abs_path_len = strlen(file->d_name) + strlen(dirname) + 2;
+            char* abs_path = malloc(sizeof(char) * abs_path_len);
+            strncpy(abs_path, dirname, abs_path_len);
+            strncat(abs_path, "/", abs_path_len);
+            strncat(abs_path, file->d_name, abs_path_len);
+
+            struct stat st;
+            if (stat(abs_path, &st) == -1) {
+                perror("stat");
+                return -1;
+            }
+            if (S_ISDIR(st.st_mode)) {
+                recursively_visit_dir_and_write_file(abs_path, max_n);
+                if (*max_n == 0) {
+                    free(abs_path);
+                    closedir(dir);
+                    return 0;
+                }
+            } else {
+                // write the file to the server
+                openFile(abs_path, O_CREATE);
+                writeFile(abs_path, expelled_dirname);
+                closeFile(abs_path);
+                if (*max_n > 0) {
+                    (*max_n)--;
+                }
+            }
+
+            free(abs_path);
+            if (*max_n == 0) {
+                closedir(dir);
+                return 0;
+            }
+        }
+        if (errno != 0) {
+            perror("readdir");
+        }
+        if (closedir(dir) == -1) {
+            perror("closedir");
+            return -1;
+        };
+    }
+    return 0;
+}
+
 static int run_commands(int argc, char* argv[])
 {
     // Open the connection to the server
@@ -152,7 +216,29 @@ static int run_commands(int argc, char* argv[])
 
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-w") == 0) {
-            printf("run w command on %s\n", argv[++i]);
+            ++i;
+            long max_n = -1;
+            char* strtok_save = NULL;
+            char* dirname = strtok_r(argv[i], ",", &strtok_save);
+            char* n_arg = strtok_r(NULL, ",", &strtok_save);
+            if (n_arg != NULL) {
+                if (strlen(n_arg) < 3 || n_arg[0] != 'n' || n_arg[1] != '=') {
+                    fprintf(stderr, "invalid argument %s\n", argv[i]);
+                    continue;
+                }
+                int str_to_long_res = string_to_long(n_arg + 2, &max_n);
+                if (str_to_long_res == -1) {
+                    fprintf(stderr, "invalid argument %s\n", argv[i]);
+                    continue;
+                }
+            }
+            if (max_n <= 0) {
+                max_n = -1;
+            }
+            int visit_res = recursively_visit_dir_and_write_file(dirname, &max_n);
+            if (visit_res == -1) {
+                return -1;
+            }
         } else if (strcmp(argv[i], "-W") == 0) {
             ++i;
             char* strtok_save = NULL;
