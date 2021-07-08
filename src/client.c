@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -150,12 +151,80 @@ static int run_commands(int argc, char* argv[])
 
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-w") == 0) {
+            printf("run w command on %s\n", argv[++i]);
         } else if (strcmp(argv[i], "-W") == 0) {
+            ++i;
+            char* strtok_save = NULL;
+            char* tok = strtok_r(argv[i], ",", &strtok_save);
+            while (tok) {
+                openFile(tok, O_CREATE);
+                writeFile(tok, expelled_dirname);
+                closeFile(tok);
+                tok = strtok_r(NULL, ",", &strtok_save);
+            }
         } else if (strcmp(argv[i], "-r") == 0) {
+            ++i;
+            char* strtok_save = NULL;
+            char* tok = strtok_r(argv[i], ",", &strtok_save);
+            while (tok) {
+                void* buf;
+                size_t size;
+                openFile(tok, 0);
+                int read_res = readFile(tok, &buf, &size);
+                closeFile(tok);
+                if (read_res != -1 && read_dirname != NULL) {
+                    int save_res = save_file_to_disk(read_dirname, tok, size, buf);
+                    if (save_res == -1) {
+                        return -1;
+                    }
+                }
+                free(buf);
+                tok = strtok_r(NULL, ",", &strtok_save);
+            }
         } else if (strcmp(argv[i], "-R") == 0) {
+            int n = 0;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                ++i;
+                if (strlen(argv[i]) < 3 || argv[i][0] != 'n' || argv[i][1] != '=') {
+                    fprintf(stderr, "invalid argument %s\n", argv[i]);
+                    continue;
+                }
+                int str_to_long_res = string_to_long(argv[i] + 2, &n);
+                if (str_to_long_res == -1) {
+                    fprintf(stderr, "invalid argument %s\n", argv[i]);
+                    continue;
+                }
+            }
+            readNFiles(n, read_dirname);
         } else if (strcmp(argv[i], "-l") == 0) {
+            ++i;
+            char* strtok_save = NULL;
+            char* tok = strtok_r(argv[i], ",", &strtok_save);
+            while (tok) {
+                openFile(tok, 0);
+                lockFile(tok);
+                closeFile(tok);
+                tok = strtok_r(NULL, ",", &strtok_save);
+            }
         } else if (strcmp(argv[i], "-u") == 0) {
+            ++i;
+            char* strtok_save = NULL;
+            char* tok = strtok_r(argv[i], ",", &strtok_save);
+            while (tok) {
+                openFile(tok, 0);
+                unlockFile(tok);
+                closeFile(tok);
+                tok = strtok_r(NULL, ",", &strtok_save);
+            }
         } else if (strcmp(argv[i], "-c") == 0) {
+            ++i;
+            char* strtok_save = NULL;
+            char* tok = strtok_r(argv[i], ",", &strtok_save);
+            while (tok) {
+                openFile(tok, 0);
+                removeFile(tok);
+                tok = strtok_r(NULL, ",", &strtok_save);
+            }
         }
     }
 
