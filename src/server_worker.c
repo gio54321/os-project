@@ -311,7 +311,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             // the client only allows the values of cout to be either a positive
             // integer or -1
             if (client_packet.count <= 0) {
-                // -1 means read all files
+                // count <= 0  means read all files
                 client_packet.count = file_storage->num_files;
             }
             vfile_t* curr_file = file_storage->first;
