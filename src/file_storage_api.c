@@ -22,6 +22,11 @@ bool FILE_STORAGE_API_PRINTS_ENABLED = false;
         printf(__VA_ARGS__);               \
     }
 
+#define PRINT_ERR_CODE_IF_EN(err_code, context) \
+    if (FILE_STORAGE_API_PRINTS_ENABLED) {      \
+        print_error_code(err_code, context);    \
+    }
+
 static int receive_files_from_server(const char* dirname, const char* error_context)
 {
     for (;;) {
@@ -40,7 +45,7 @@ static int receive_files_from_server(const char* dirname, const char* error_cont
 
         // if the response is an error then print it to stderr
         if (response.op == ERROR) {
-            print_error_code(response.err_code, error_context);
+            PRINT_ERR_CODE_IF_EN(response.err_code, error_context);
             errno = EBADE;
             return -1;
         }
@@ -147,7 +152,7 @@ int openFile(const char* pathname, int flags)
 
     // if the response is an error then print it to stderr
     if (response.op == ERROR) {
-        print_error_code(response.err_code, "openFile");
+        PRINT_ERR_CODE_IF_EN(response.err_code, "openFile");
     }
     errno = EBADE;
     return -1;
@@ -199,7 +204,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
 
     // if the response is an error then print it to stderr
     if (response.op == ERROR) {
-        print_error_code(response.err_code, "readFile");
+        PRINT_ERR_CODE_IF_EN(response.err_code, "readFile");
     }
     errno = EBADE;
     return -1;
@@ -347,7 +352,7 @@ int lockFile(const char* pathname)
 
     // if the response is an error then print it to stderr
     if (response.op == ERROR) {
-        print_error_code(response.err_code, "lockFile");
+        PRINT_ERR_CODE_IF_EN(response.err_code, "lockFile");
     }
     errno = EBADE;
     return -1;
@@ -392,7 +397,7 @@ int unlockFile(const char* pathname)
 
     // if the response is an error then print it to stderr
     if (response.op == ERROR) {
-        print_error_code(response.err_code, "lockFile");
+        PRINT_ERR_CODE_IF_EN(response.err_code, "lockFile");
     }
     errno = EBADE;
     return -1;
@@ -438,7 +443,7 @@ int closeFile(const char* pathname)
 
     // if the response is an error then print it to stderr
     if (response.op == ERROR) {
-        print_error_code(response.err_code, "closeFile");
+        PRINT_ERR_CODE_IF_EN(response.err_code, "closeFile");
     }
     errno = EBADE;
     return -1;
@@ -484,7 +489,7 @@ int removeFile(const char* pathname)
 
     // if the response is an error then print it to stderr
     if (response.op == ERROR) {
-        print_error_code(response.err_code, "removeFile");
+        PRINT_ERR_CODE_IF_EN(response.err_code, "removeFile");
     }
     errno = EBADE;
     return -1;
