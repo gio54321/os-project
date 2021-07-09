@@ -15,6 +15,14 @@
         exit(EXIT_FAILURE); \
     }
 
+#define DIE_NEG_IGN_EPIPE(code, name) \
+    if ((code) < 0) {                 \
+        if (errno != EPIPE) {         \
+            perror(name);             \
+            exit(EXIT_FAILURE);       \
+        }                             \
+    }
+
 #define DIE_NULL(code, name) \
     if ((code) == NULL) {    \
         perror(name);        \

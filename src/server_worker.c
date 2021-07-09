@@ -11,14 +11,14 @@
 #include "unbounded_shared_buffer.h"
 #include "utils.h"
 
-static int send_error(int client_fd, char err_code)
+static void send_error(int client_fd, char err_code)
 {
     struct packet err_packet;
     clear_packet(&err_packet);
 
     err_packet.op = ERROR;
     err_packet.err_code = err_code;
-    return send_packet(client_fd, &err_packet);
+    DIE_NEG_IGN_EPIPE(send_packet(client_fd, &err_packet), "send_error");
 }
 
 static void send_comp(int client_fd)
@@ -27,7 +27,7 @@ static void send_comp(int client_fd)
     clear_packet(&err_packet);
 
     err_packet.op = COMP;
-    DIE_NEG(send_packet(client_fd, &err_packet), "send packet");
+    DIE_NEG_IGN_EPIPE(send_packet(client_fd, &err_packet), "send packet");
 }
 
 /**
@@ -38,7 +38,7 @@ static void flush_lock_queue(fd_set* queue, int fd_max, usbuf_t* logger_buffer)
     for (int i = 0; i <= fd_max; ++i) {
         if (FD_ISSET(i, queue)) {
             LOG(logger_buffer, "client %d was waiting on the lock queue, the lock operation fails", i);
-            DIE_NEG1(send_error(i, FILE_DOES_NOT_EXIST), "send error");
+            send_error(i, FILE_DOES_NOT_EXIST);
         }
     }
 }
@@ -72,7 +72,7 @@ static void eject_one_file(int client_fd, file_storage_t* storage, usbuf_t* logg
         file_packet.data_size = victim->size;
         file_packet.data = victim->data;
 
-        DIE_NEG(send_packet(client_fd, &file_packet), "send_packet");
+        DIE_NEG_IGN_EPIPE(send_packet(client_fd, &file_packet), "send_packet");
     } else {
         LOG(logger_buffer, "replacement: deleting %s, the new total size of the storage is %ld with %d files",
             victim->filename, storage->total_size, storage->num_files);
@@ -241,7 +241,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                         }
                     } else {
                         LOG(logger_buffer, "file open requested for %s but the file does not exist in the storage", client_packet.filename);
-                        DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                        send_error(client_fd, FILE_DOES_NOT_EXIST);
                         completed = true;
                     }
                 } else {
@@ -263,7 +263,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     } else {
                         LOG(logger_buffer, "client %d requested to lock the file %s but was already locked, operation failed", client_fd, client_packet.filename);
                         // if the file is already locked then fail
-                        DIE_NEG1(send_error(client_fd, FILE_ALREADY_LOCKED), "send error");
+                        send_error(client_fd, FILE_ALREADY_LOCKED);
 
                         // clear the client in the opened by set (the opertion failed, so
                         // the file is not opened by the client)
@@ -286,7 +286,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (errno = ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "file read requested for %s but the file does not exist in the storage", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                    send_error(client_fd, FILE_DOES_NOT_EXIST);
                 } else {
                     perror("get file from name");
                     exit(EXIT_FAILURE);
@@ -295,14 +295,14 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (file_to_read->locked_by != -1 && file_to_read->locked_by != client_fd) {
                     // the file is locked by another client
                     LOG(logger_buffer, "file read requested for %s but the file is already locked by client %d", client_packet.filename, file_to_read->locked_by);
-                    DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                    send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
                 } else {
                     struct packet response;
                     clear_packet(&response);
                     response.op = DATA;
                     response.data_size = file_to_read->size;
                     response.data = file_to_read->data;
-                    DIE_NEG(send_packet(client_fd, &response), "send packet");
+                    DIE_NEG_IGN_EPIPE(send_packet(client_fd, &response), "send packet");
                     LOG(logger_buffer, "%ld bytes sent to client %d for reading %s", file_to_read->size, client_fd, client_packet.filename);
                 }
             }
@@ -326,7 +326,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 file_packet.filename = curr_file->filename;
                 file_packet.data_size = curr_file->size;
                 file_packet.data = curr_file->data;
-                DIE_NEG(send_packet(client_fd, &file_packet), "send_packet");
+                DIE_NEG_IGN_EPIPE(send_packet(client_fd, &file_packet), "send_packet");
                 curr_file = curr_file->next;
             }
             send_comp(client_fd);
@@ -340,7 +340,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (errno = ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "file write requested for %s but the file does not exist in the storage", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                    send_error(client_fd, FILE_DOES_NOT_EXIST);
                 } else {
                     perror("get file from name");
                     exit(EXIT_FAILURE);
@@ -349,17 +349,17 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (file_to_write->size != 0) {
                     // the file has been written already, so the write operation is invalid
                     LOG(logger_buffer, "file write requested for %s but the file has already been written to", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_WAS_ALREADY_WRITTEN), "send error");
+                    send_error(client_fd, FILE_WAS_ALREADY_WRITTEN);
                 } else {
                     if (file_to_write->locked_by != client_fd && file_to_write->locked_by != -1) {
                         // the file is locked by another client
                         LOG(logger_buffer, "file write requested for %s but the file is already locked by client %d", client_packet.filename, file_to_read->locked_by);
-                        DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                        send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
                     } else {
                         if (client_packet.data_size > max_storage_size) {
                             // the file is locked by another client
                             LOG(logger_buffer, "file write requested for %s but the file is too big (%ld bytes)", client_packet.filename, client_packet.data_size);
-                            DIE_NEG1(send_error(client_fd, FILE_IS_TOO_BIG), "send error");
+                            send_error(client_fd, FILE_IS_TOO_BIG);
                         } else {
                             // eject files
                             eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer, NULL);
@@ -394,7 +394,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (errno = ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "file append requested for %s but the file does not exist in the storage", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                    send_error(client_fd, FILE_DOES_NOT_EXIST);
                 } else {
                     perror("get file from name");
                     exit(EXIT_FAILURE);
@@ -403,12 +403,12 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (file_to_append->locked_by != client_fd && file_to_append->locked_by != -1) {
                     // the file is locked by another client
                     LOG(logger_buffer, "file append requested for %s but the file is already locked by client %d", client_packet.filename, file_to_read->locked_by);
-                    DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                    send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
                 } else {
                     if (client_packet.data_size + file_to_append->size > max_storage_size) {
                         // the file is locked by another client
                         LOG(logger_buffer, "file append requested for %s but the data is too big (%ld bytes)", client_packet.filename, client_packet.data_size);
-                        DIE_NEG1(send_error(client_fd, FILE_IS_TOO_BIG), "send error");
+                        send_error(client_fd, FILE_IS_TOO_BIG);
                     } else {
                         // eject files
                         eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer, file_to_append);
@@ -443,7 +443,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (errno = ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "file lock requested for %s but the file does not exist in the storage", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                    send_error(client_fd, FILE_DOES_NOT_EXIST);
                 } else {
                     perror("get file from name");
                     exit(EXIT_FAILURE);
@@ -452,7 +452,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (file_to_lock->locked_by == client_fd) {
                     // the file has been written already, so the write operation is invalid
                     LOG(logger_buffer, "file lock requested for %s but the file was already locked by the client", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_ALREADY_LOCKED), "send error");
+                    send_error(client_fd, FILE_ALREADY_LOCKED);
                 } else {
                     if (file_to_lock->locked_by == -1) {
                         file_to_lock->locked_by = client_fd;
@@ -478,7 +478,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (errno = ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "file unlock requested for %s but the file does not exist in the storage", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                    send_error(client_fd, FILE_DOES_NOT_EXIST);
                 } else {
                     perror("get file from name");
                     exit(EXIT_FAILURE);
@@ -488,7 +488,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (file_to_unlock->locked_by != client_fd) {
                     // the file has been written already, so the write operation is invalid
                     LOG(logger_buffer, "file unlock requested for %s but the file was locked by another client", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_IS_NOT_LOCKED), "send error");
+                    send_error(client_fd, FILE_IS_NOT_LOCKED);
                 } else {
                     unlock_file(file_to_unlock, logger_buffer);
                 }
@@ -503,7 +503,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (errno = ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "file removal requested for %s but the file does not exist in the storage", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                    send_error(client_fd, FILE_DOES_NOT_EXIST);
                 } else {
                     perror("get file from name");
                     exit(EXIT_FAILURE);
@@ -514,7 +514,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (!FD_ISSET(client_fd, &file_to_close->opened_by)) {
                     // file is not opened by the client, send error
                     LOG(logger_buffer, "file removal requested for %s but the file is not opened by the client %d", client_packet.filename, file_to_close->locked_by);
-                    DIE_NEG1(send_error(client_fd, FILE_IS_NOT_OPENED), "send error");
+                    send_error(client_fd, FILE_IS_NOT_OPENED);
                 } else {
                     // remove the client from the file's open set
                     // then send completion packet
@@ -538,7 +538,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (errno = ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "file removal requested for %s but the file does not exist in the storage", client_packet.filename);
-                    DIE_NEG1(send_error(client_fd, FILE_DOES_NOT_EXIST), "send error");
+                    send_error(client_fd, FILE_DOES_NOT_EXIST);
                 } else {
                     perror("get file from name");
                     exit(EXIT_FAILURE);
@@ -547,12 +547,12 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 if (file_to_remove->locked_by != -1 && file_to_remove->locked_by != client_fd) {
                     // the file is locked by another client
                     LOG(logger_buffer, "file removal requested for %s but the file is already locked by client %d", client_packet.filename, file_to_remove->locked_by);
-                    DIE_NEG1(send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT), "send error");
+                    send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
                 } else {
                     if (!FD_ISSET(client_fd, &file_to_remove->opened_by)) {
                         // file is not opened by the client, send error
                         LOG(logger_buffer, "file removal requested for %s but the file is not opened by the client", client_packet.filename);
-                        DIE_NEG1(send_error(client_fd, FILE_IS_NOT_OPENED), "send error");
+                        send_error(client_fd, FILE_IS_NOT_OPENED);
                     } else {
                         // remove the file from the storage and then free the associated memoty
                         // then send completion packet
