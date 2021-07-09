@@ -197,7 +197,7 @@ int recursively_visit_dir_and_write_file(const char dirname[], long* max_n)
                 }
             } else {
                 // write the file to the server
-                API_CALL(openFile(abs_path, O_CREATE), "openFile");
+                API_CALL(openFile(abs_path, O_CREATE | O_LOCK), "openFile");
                 API_CALL(writeFile(abs_path, expelled_dirname), "writeFile");
                 API_CALL(closeFile(abs_path), "closeFile");
                 if (*max_n > 0) {
@@ -263,7 +263,7 @@ static int run_commands(int argc, char* argv[])
             char* strtok_save = NULL;
             char* tok = strtok_r(argv[i], ",", &strtok_save);
             while (tok) {
-                API_CALL(openFile(tok, O_CREATE), "openFile");
+                API_CALL(openFile(tok, O_CREATE | O_LOCK), "openFile");
                 API_CALL(writeFile(tok, expelled_dirname), "writeFile");
                 API_CALL(closeFile(tok), "closeFile");
                 tok = strtok_r(NULL, ",", &strtok_save);
@@ -273,7 +273,7 @@ static int run_commands(int argc, char* argv[])
             char* strtok_save = NULL;
             char* tok = strtok_r(argv[i], ",", &strtok_save);
             while (tok) {
-                void* buf;
+                void* buf = NULL;
                 size_t size;
                 API_CALL(openFile(tok, 0), "openFile");
                 int read_res = readFile(tok, &buf, &size);
@@ -283,8 +283,8 @@ static int run_commands(int argc, char* argv[])
                     if (save_res == -1) {
                         return -1;
                     }
+                    free(buf);
                 }
-                free(buf);
                 tok = strtok_r(NULL, ",", &strtok_save);
             }
         } else if (strcmp(argv[i], "-R") == 0) {
