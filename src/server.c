@@ -150,7 +150,7 @@ int print_statistics(file_storage_t* storage)
     }
     printf("\n================= STATISTICS =================\n");
     printf("Maximum number of files on the server: %d\n", storage->statistics.maximum_num_files);
-    printf("Maximum size reached: %.6f MB (%ld byte)\n", (double)storage->statistics.maximum_size_reached / 10E6, storage->statistics.maximum_size_reached);
+    printf("Maximum size reached: %.6f MB (%ld byte)\n", (double)storage->statistics.maximum_size_reached / 1E6, storage->statistics.maximum_size_reached);
     printf("Number of times the replacement algorithms ran: %ld\n", storage->statistics.num_replacements);
 
     printf("Files in the server:\n");
