@@ -7,6 +7,9 @@ max_storage_size=128000000
 enable_compression=0
 socketname=./LSOfilestorage.sk" > config.txt
 
+# clean the output folder
+rm -rf test_out/
+
 valgrind --leak-check=full ./bin/server &
 
 valgrind --leak-check=full ./bin/client -p -f ./LSOfilestorage.sk \
