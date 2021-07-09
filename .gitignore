@@ -62,3 +62,6 @@ log.txt
 
 # test outputs
 test_out/*
+
+# server config
+config.txt

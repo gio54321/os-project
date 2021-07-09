@@ -1,5 +1,0 @@
-num_workers=8
-max_num_files=100
-max_storage_size=256
-enable_compression=0
-socketname=/tmp/LSOfilestorage.sk
