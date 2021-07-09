@@ -21,13 +21,16 @@ RUNTESTS = $(patsubst %,run_%_test,$(TEST_OBJ))
 CTESTS = $(patsubst %,$(BINDIR)/%_ctest,$(CONCURRENT_OBJ))
 RUNCTESTS = $(patsubst %,run_%_ctest,$(CONCURRENT_OBJ))
 
-.PHONY: all tests run-all-tests run-tests run-ctests clean test1 test2
+.PHONY: all tests run-all-tests run-tests run-ctests clean test1 test2 test3
 
 test1: all
 	./scripts/test1.sh
 
 test2: all
 	./scripts/test2.sh
+
+test3: all
+	./scripts/test3.sh
 
 all: $(OBJ) $(BINDIR)/server $(BINDIR)/client
 
