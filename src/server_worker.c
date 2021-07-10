@@ -167,6 +167,8 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
     long max_num_files = worker_args->max_num_files;
     long max_storage_size = worker_args->max_storage_size;
 
+    unsigned int num_served_requests = 0;
+
     rw_lock_t* storage_lock = get_rw_lock_from_storage(file_storage);
 
     LOG(logger_buffer, "Worker #%d started", num_worker);
@@ -176,7 +178,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
         int get_res;
         DIE_NEG1(get_res = usbuf_get(master_to_workers_buf, &client_fd_ptr), "usbuf get");
         if (get_res == -2) {
-            LOG(logger_buffer, "Worker %d terminated", num_worker);
+            LOG(logger_buffer, "Terminated worker %d requests served: %d", num_worker, num_served_requests);
             // the buffer is closed, so the worker should terminate
             return;
         }
@@ -218,6 +220,9 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             // return to listening on the buffer
             continue;
         }
+
+        // increment number of requests served by the worker
+        ++num_served_requests;
 
         switch (client_packet.op) {
         case OPEN_FILE:
@@ -339,7 +344,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 curr_file = curr_file->next;
             }
             send_comp(client_fd);
-            LOG(logger_buffer, "[W:%02d] [C:%02d] [read] SUCCESS", num_worker, client_fd);
+            LOG(logger_buffer, "[W:%02d] [C:%02d] [read_n] SUCCESS", num_worker, client_fd);
             read_unlock(storage_lock);
             break;
         case WRITE_FILE:
