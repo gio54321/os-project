@@ -272,8 +272,8 @@ int main(void)
                     if (client_fd > fd_max) {
                         fd_max = client_fd;
                     }
-                    LOG(logger_buffer, "client %d connected", client_fd);
                     ++num_clients_connected;
+                    LOG(logger_buffer, "client %d connected, clients connected:%d", client_fd, num_clients_connected);
                 } else if (fd == sig_handler_to_master_pipe[0]) {
                     char exit_code;
                     DIE_NEG1(read(sig_handler_to_master_pipe[0], &exit_code, sizeof(char)), "read");
