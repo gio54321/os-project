@@ -56,6 +56,10 @@ echo "Average size of read operations:  $read_avg byte"
 # calculate the maximum clients connected
 echo "Maximum concurrent $(grep -o "clients connected:[0-9]*" log.txt | sed -r 's/:/: /' | sort -r -k 3 -n | head -n 1 )"
 
+# get the maximum num files and the maximum size reached
+echo $(grep -o "Maximum number of files on the server: [0-9]*" log.txt)
+echo $(grep -o "Maximum size reached: [0-9]* byte" log.txt)
+
 # show the number of requests served by each worker
 echo ""
 echo "REQUESTS SERVED PER WORKER"

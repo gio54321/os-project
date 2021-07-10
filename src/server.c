@@ -142,7 +142,7 @@ cleanup:
     return -1;
 }
 
-int print_statistics(file_storage_t* storage)
+int print_statistics(file_storage_t* storage, usbuf_t* logger_buf)
 {
     if (storage == NULL) {
         errno = EINVAL;
@@ -152,6 +152,10 @@ int print_statistics(file_storage_t* storage)
     printf("Maximum number of files on the server: %d\n", storage->statistics.maximum_num_files);
     printf("Maximum size reached: %.6f MB (%ld byte)\n", (double)storage->statistics.maximum_size_reached / 1E6, storage->statistics.maximum_size_reached);
     printf("Number of times the replacement algorithms ran: %ld\n", storage->statistics.num_replacements);
+
+    // log the maximum number of files and the maximum size reached
+    LOG(logger_buf, "[STATISTICS] Maximum number of files on the server: %d", storage->statistics.maximum_num_files);
+    LOG(logger_buf, "[STATISTICS] Maximum size reached: %ld byte", storage->statistics.maximum_size_reached);
 
     printf("Files in the server:\n");
     if (storage->first == NULL) {
@@ -327,6 +331,8 @@ int main(void)
         }
     }
 
+    DIE_NEG1(print_statistics(file_storage, logger_buffer), "print_statistics");
+
     // close the master workers buffer and join the workers pool
     DIE_NEG1(usbuf_close(master_to_workers_buffer), "usbuf close");
     DIE_NEG1(thread_pool_join(workers_pool), "thread_pool_join");
@@ -337,8 +343,6 @@ int main(void)
     // close the logger buffer and join the logger thread
     DIE_NEG1(usbuf_close(logger_buffer), "usbuf close");
     DIE_NEG1(pthread_join(logger_tid, NULL), "pthread_join");
-
-    DIE_NEG1(print_statistics(file_storage), "print_statistics");
 
     DIE_NEG1(unlink(cfg.socketname), "unlink");
 
