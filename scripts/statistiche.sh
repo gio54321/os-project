@@ -52,6 +52,9 @@ read_len=$(echo $read | wc -w)
 read_avg=$(echo "scale=2;$read_sum/$read_len" | bc)
 echo "Average size of read operations:  $read_avg byte"
 
+# calculate the maximum clients connected
+echo "Maximum concurrent $(grep -o "clients connected:[0-9]*" log.txt | sort -r | head -n 1 | sed -r 's/:/: /')"
+
 # show the number of requests served by each worker
 echo ""
 echo "REQUESTS SERVED PER WORKER"
