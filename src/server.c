@@ -292,9 +292,10 @@ int main(void)
                     int put_back_fd;
                     DIE_NEG1(readn(workers_to_master_pipe[0], &put_back_fd, sizeof(int)), "readn");
 
-                    if (put_back_fd == -1) {
+                    if (put_back_fd < 0) {
                         // the client disconnected
                         --num_clients_connected;
+                        close(-put_back_fd);
                     } else {
                         // put the fd in the listen set
                         FD_SET(put_back_fd, &listen_set);

@@ -208,13 +208,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 
             LOG(logger_buffer, "[W:%02d] [C:%02d] [cleanup] SUCCESS", num_worker, client_fd);
 
-            // finally close the client fd
-            close(client_fd);
-
             write_unlock(storage_lock);
 
-            // send back -1 to the main thread so that we con notify that the client disconnected
-            int neg1 = -1;
+            // send back -client_fd to the main thread so that we con notify that the client disconnected
+            int neg1 = -client_fd;
             DIE_NEG1(writen(worker_to_master_pipe, &neg1, sizeof(int)), "writen");
 
             // return to listening on the buffer
