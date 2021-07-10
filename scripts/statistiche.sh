@@ -19,16 +19,17 @@ for op in open close write read read_n append lock unlock remove
 do
   n_req=$(grep -o ".${op}. REQUEST" log.txt | wc -l)
   n_succ=$(grep -o ".${op}. SUCCESS" log.txt | wc -l)
-  echo "Number of $op operations {requests:$n_req, successes:$n_succ}"
+  echo "Number of $op operations {requests: $n_req, successes: $n_succ}"
 done
-
-# calculate the number of replacements occurred
-n_rep=$(grep -o "REPLACEMENT" log.txt | wc -l)
-echo "Number of times the replacement algorithm ran $n_rep"
 
 # calculate the number of opens with the flag O_LOCK set to 1
 n=$(grep -o "lock:1" log.txt | wc -l)
 echo "Number of open-lock requests: $n"
+
+echo ""
+# calculate the number of replacements occurred
+n_rep=$(grep -o "REPLACEMENT" log.txt | wc -l)
+echo "Number of times the replacement algorithm ran: $n_rep"
 
 # calculate the avergae write size
 written=$(grep -o "written_bytes:[0-9]*" log.txt | awk -F ':' '{print $2}')
