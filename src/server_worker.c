@@ -197,7 +197,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             exit(EXIT_FAILURE);
         } else if (receive_res == 0 || (receive_res == -1 && errno == ECONNRESET)) {
             // the client disconnected
-            write_lock(storage_lock);
+            DIE_NEG1(write_lock(storage_lock), "write_lock");
 
             LOG(logger_buffer, "[W:%02d] [C:%02d] [disconnect] INFO client disconnected, starting cleanup", num_worker, client_fd);
 
@@ -208,7 +208,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 
             LOG(logger_buffer, "[W:%02d] [C:%02d] [cleanup] SUCCESS", num_worker, client_fd);
 
-            write_unlock(storage_lock);
+            DIE_NEG1(write_unlock(storage_lock), "write_unlock");
 
             // send back -client_fd to the main thread so that we con notify that the client disconnected
             int neg1 = -client_fd;
@@ -223,7 +223,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
 
         switch (client_packet.op) {
         case OPEN_FILE:
-            write_lock(storage_lock);
+            DIE_NEG1(write_lock(storage_lock), "write_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [open] REQUEST {file:%s; lock:%d; create:%d}",
                 num_worker, client_fd, client_packet.filename, (client_packet.flags & O_LOCK) > 0, (client_packet.flags & O_CREATE) > 0);
             bool completed = false;
@@ -285,10 +285,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 send_comp(client_fd);
             }
 
-            write_unlock(storage_lock);
+            DIE_NEG1(write_unlock(storage_lock), "write_unlock");
             break;
         case READ_FILE:
-            read_lock(storage_lock);
+            DIE_NEG1(read_lock(storage_lock), "read_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [read] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_read = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_read == NULL) {
@@ -315,10 +315,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [read] SUCCESS {sent_bytes:%zd}", num_worker, client_fd, file_to_read->size);
                 }
             }
-            read_unlock(storage_lock);
+            DIE_NEG1(read_unlock(storage_lock), "read_unlock");
             break;
         case READ_N_FILES:
-            read_lock(storage_lock);
+            DIE_NEG1(read_lock(storage_lock), "read_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [read_n] REQUEST {n:%ld}", num_worker, client_fd, client_packet.count);
             // the client only allows the values of cout to be either a positive
             // integer or -1
@@ -342,10 +342,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             }
             send_comp(client_fd);
             LOG(logger_buffer, "[W:%02d] [C:%02d] [read_n] SUCCESS", num_worker, client_fd);
-            read_unlock(storage_lock);
+            DIE_NEG1(read_unlock(storage_lock), "read_unlock");
             break;
         case WRITE_FILE:
-            write_lock(storage_lock);
+            DIE_NEG1(write_lock(storage_lock), "write_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [write] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_write = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_write == NULL) {
@@ -399,10 +399,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     }
                 }
             }
-            write_unlock(storage_lock);
+            DIE_NEG1(write_unlock(storage_lock), "write_unlock");
             break;
         case APPEND_TO_FILE:
-            write_lock(storage_lock);
+            DIE_NEG1(write_lock(storage_lock), "write_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [append] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_append = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_append == NULL) {
@@ -448,10 +448,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 }
             }
 
-            write_unlock(storage_lock);
+            DIE_NEG1(write_unlock(storage_lock), "write_unlock");
             break;
         case LOCK_FILE:
-            write_lock(storage_lock);
+            DIE_NEG1(write_lock(storage_lock), "write_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_lock = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_lock == NULL) {
@@ -485,10 +485,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     }
                 }
             }
-            write_unlock(storage_lock);
+            DIE_NEG1(write_unlock(storage_lock), "write_unlock");
             break;
         case UNLOCK_FILE:
-            write_lock(storage_lock);
+            DIE_NEG1(write_lock(storage_lock), "write_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             fflush(stdout);
             vfile_t* file_to_unlock = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
@@ -512,10 +512,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] SUCCESS", num_worker, client_fd);
                 }
             }
-            write_unlock(storage_lock);
+            DIE_NEG1(write_unlock(storage_lock), "write_unlock");
             break;
         case CLOSE_FILE:
-            write_lock(storage_lock);
+            DIE_NEG1(write_lock(storage_lock), "write_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [close] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_close = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_close == NULL) {
@@ -548,10 +548,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [close] SUCCESS", num_worker, client_fd);
                 }
             }
-            write_unlock(storage_lock);
+            DIE_NEG1(write_unlock(storage_lock), "write_unlock");
             break;
         case REMOVE_FILE:
-            write_lock(storage_lock);
+            DIE_NEG1(write_lock(storage_lock), "write_lock");
             LOG(logger_buffer, "[W:%02d] [C:%02d] [remove] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_remove = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_remove == NULL) {
@@ -586,7 +586,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     }
                 }
             }
-            write_unlock(storage_lock);
+            DIE_NEG1(write_unlock(storage_lock), "write_unlock");
             break;
         default:
             break;
