@@ -10,6 +10,7 @@ socketname=./LSOfilestorage.sk" > config.txt
 # clean the output folder
 rm -rf test_out/
 
+echo "spawning the server"
 ./bin/server &
 
 function run_client() {
@@ -21,7 +22,7 @@ function run_client() {
     done
 }
 
-echo "spawning 10 clients"
+echo "spawning the clients"
 for i in {1..10};
 do
     run_client &
