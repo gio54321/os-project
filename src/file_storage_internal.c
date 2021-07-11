@@ -114,6 +114,9 @@ int destroy_vfile(vfile_t* vfile)
     }
     free(vfile->data);
     free(vfile->filename);
+    if (pthread_mutex_destroy(&vfile->replacement_mutex) == -1) {
+        return -1;
+    }
     free(vfile);
     return 0;
 }
