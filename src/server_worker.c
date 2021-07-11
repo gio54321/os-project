@@ -312,6 +312,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     response.data_size = file_to_read->size;
                     response.data = file_to_read->data;
                     DIE_NEG_IGN_EPIPE(send_packet(client_fd, &response), "send packet");
+
+                    // increment the used counter
+                    DIE_NEG1(atomic_increment_used_counter(file_to_read), "atomic increment used counter");
+
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [read] SUCCESS {sent_bytes:%zd}", num_worker, client_fd, file_to_read->size);
                 }
             }
@@ -336,6 +340,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 file_packet.data_size = curr_file->size;
                 file_packet.data = curr_file->data;
                 DIE_NEG_IGN_EPIPE(send_packet(client_fd, &file_packet), "send_packet");
+
+                // increment the used counter
+                DIE_NEG1(atomic_increment_used_counter(curr_file), "atomic increment used counter");
+
                 LOG(logger_buffer, "[W:%02d] [C:%02d] [read_n] INFO sent file {filename:%s; sent_bytes:%zd}",
                     num_worker, client_fd, curr_file->filename, curr_file->size);
                 curr_file = curr_file->next;
@@ -389,6 +397,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                             file_storage->total_size += client_packet.data_size;
 
                             send_comp(client_fd);
+
+                            // increment the used counter
+                            DIE_NEG1(atomic_increment_used_counter(file_to_write), "atomic increment used counter");
+
                             LOG(logger_buffer, "[W:%02d] [C:%02d] [write] SUCCESS {written_bytes:%zd}", num_worker, client_fd, client_packet.data_size);
 
                             // increment max of total size if needed
@@ -439,6 +451,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                         file_storage->total_size += client_packet.data_size;
 
                         send_comp(client_fd);
+
+                        // increment the used counter
+                        DIE_NEG1(atomic_increment_used_counter(file_to_append), "atomic increment used counter");
+
                         LOG(logger_buffer, "[W:%02d] [C:%02d] [append] SUCCESS {written_bytes:%zd}", num_worker, client_fd, client_packet.data_size);
 
                         // increment max of total size if needed
@@ -483,6 +499,9 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                         LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] INFO client is inserted into the witing queue", num_worker, client_fd);
                         // NB: do not send comp, the operation does not complete until
                         // the owner of the lock releases it
+
+                        // increment the used counter
+                        DIE_NEG1(atomic_increment_used_counter(file_to_lock), "atomic increment used counter");
                     }
                 }
             }

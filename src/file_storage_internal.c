@@ -93,6 +93,11 @@ vfile_t* create_vfile()
     FD_ZERO(&vfile->lock_queue);
     vfile->lock_queue_max = 0;
     vfile->data = NULL;
+    vfile->used_counter = 0;
+
+    if (pthread_mutex_init(&vfile->replacement_mutex, NULL) == -1) {
+        return NULL;
+    }
 
     return vfile;
 }
@@ -221,10 +226,28 @@ vfile_t* choose_victim_file(file_storage_t* storage, vfile_t* file_to_exclude)
         } else {
             return storage->first;
         }
-    case LRU_REPLACEMENT:
     case LFU_REPLACEMENT:
+        // for the LFU policy we need to calculate the file that has the
+        // minimum value for used_counter. If there are multiple files that have
+        // an equal value of used_counter, then return one of them
+        ;
+        vfile_t* min_file;
+        if (file_to_exclude != NULL && storage->first == file_to_exclude) {
+            min_file = storage->first->next;
+        } else {
+            min_file = storage->first;
+        }
+
+        for (vfile_t* curr_file = min_file; curr_file != NULL; curr_file = curr_file->next) {
+            if (curr_file != file_to_exclude && curr_file->used_counter < min_file->used_counter) {
+                min_file = curr_file;
+            }
+        }
+
+        return min_file;
+    case LRU_REPLACEMENT:
     default:
-        // other replacement policies are not yet implemented
+        // LRU is not implemented
         fprintf(stderr, "not implemented\n");
         break;
     }
@@ -266,4 +289,31 @@ bool exists_file_in_storage(file_storage_t* storage, size_t filename_len, const 
         }
     }
     return false;
+}
+
+/**
+ * Atomically increment the used counter in vfile
+ * This is safe to use even when the mutual exclusion of the entire storage
+ * is acquired in read mode, because it uses an internal lock 
+*/
+int atomic_increment_used_counter(vfile_t* vfile)
+{
+    if (vfile == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    int lock_res = pthread_mutex_lock(&vfile->replacement_mutex);
+    if (lock_res == -1) {
+        return -1;
+    }
+
+    ++vfile->used_counter;
+
+    int unlock_res = pthread_mutex_unlock(&vfile->replacement_mutex);
+    if (unlock_res == -1) {
+        return -1;
+    }
+
+    return 0;
 }

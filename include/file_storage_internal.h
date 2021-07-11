@@ -27,6 +27,10 @@ typedef struct vfile {
     fd_set lock_queue;
     int lock_queue_max;
 
+    // metadata for LFU replacement algorithm
+    pthread_mutex_t replacement_mutex;
+    unsigned int used_counter;
+
     // actual data
     void* data;
 } vfile_t;
@@ -121,4 +125,11 @@ vfile_t* get_file_from_name(file_storage_t* storage, size_t filename_len, const 
  * Returns true if a file named filename exists in the storage, false otherwise.
 */
 bool exists_file_in_storage(file_storage_t* storage, size_t filename_len, const char* filename);
+
+/**
+ * Atomically increment the used counter in vfile
+ * This is safe to use even when the mutual exclusion is acquired in read mode
+ * because it uses an internal lock 
+*/
+int atomic_increment_used_counter(vfile_t* vfile);
 #endif
