@@ -39,8 +39,6 @@ int main(void)
 
     assert(get_file_from_name(storage, 5, "AAAAA") == f1);
     assert(get_file_from_name(storage, 5, "BBBBB") == f2);
-    assert(exists_file_in_storage(storage, 5, "AAAAA") == true);
-    assert(exists_file_in_storage(storage, 5, "CCCCC") == false);
 
     assert(add_vfile_to_storage(storage, f3) == 0);
     assert(storage->first == f1);

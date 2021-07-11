@@ -122,11 +122,6 @@ vfile_t* choose_victim_file(file_storage_t* storage, vfile_t* file_to_exclude);
 vfile_t* get_file_from_name(file_storage_t* storage, size_t filename_len, const char* filename);
 
 /**
- * Returns true if a file named filename exists in the storage, false otherwise.
-*/
-bool exists_file_in_storage(file_storage_t* storage, size_t filename_len, const char* filename);
-
-/**
  * Atomically increment the used counter in vfile
  * This is safe to use even when the mutual exclusion is acquired in read mode
  * because it uses an internal lock 

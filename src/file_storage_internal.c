@@ -279,19 +279,6 @@ vfile_t* get_file_from_name(file_storage_t* storage, size_t filename_len, const 
 }
 
 /**
- * Returns true if a file named filename exists in the storage, false otherwise.
-*/
-bool exists_file_in_storage(file_storage_t* storage, size_t filename_len, const char* filename)
-{
-    for (vfile_t* f = storage->first; f != NULL; f = f->next) {
-        if (strncmp(filename, f->filename, filename_len) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/**
  * Atomically increment the used counter in vfile
  * This is safe to use even when the mutual exclusion of the entire storage
  * is acquired in read mode, because it uses an internal lock 
