@@ -124,7 +124,7 @@ static int mkdir_recursive(const char* dir)
 // with content buf and size size
 // creates the containing directories recursively
 // return 0 on success and -1 on error
-int save_file_to_disk(char* dirname, char* filename, size_t size, void* buf)
+int save_file_to_disk(const char* dirname, char* filename, size_t size, void* buf)
 {
     if (size > 0) {
         // calculate the absolute path

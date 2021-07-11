@@ -432,7 +432,8 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                         size_t offset = file_to_append->size;
                         file_to_append->size += client_packet.data_size;
                         DIE_NULL(file_to_append->data = realloc(file_to_append->data, file_to_append->size), "realloc");
-                        memcpy(file_to_append->data + offset, client_packet.data, client_packet.data_size);
+                        void* location_to_write = (char*)file_to_append->data + offset;
+                        memcpy(location_to_write, client_packet.data, client_packet.data_size);
 
                         // increment the total storage size
                         file_storage->total_size += client_packet.data_size;

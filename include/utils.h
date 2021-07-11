@@ -57,5 +57,5 @@ int string_to_long(const char* s, long* n);
  * with content buf and size size
  * return 0 on success and -1 on error
 */
-int save_file_to_disk(char* dirname, char* filename, size_t size, void* buf);
+int save_file_to_disk(const char* dirname, char* filename, size_t size, void* buf);
 #endif
