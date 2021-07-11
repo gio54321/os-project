@@ -5,7 +5,8 @@ echo "num_workers=8
 max_num_files=100
 max_storage_size=32000000
 enable_compression=0
-socketname=./LSOfilestorage.sk" > config.txt
+socketname=./LSOfilestorage.sk
+replacement_policy=FIFO" > config.txt
 
 # clean the output folder
 rm -rf test_out/

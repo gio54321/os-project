@@ -34,6 +34,7 @@ struct server_config {
     long max_storage_size;
     bool enable_compression;
     char* socketname;
+    enum file_replacement_policy replacement_policy;
 };
 
 struct signal_handler_arg {
@@ -132,6 +133,16 @@ int parse_config(const char* config_filename, struct server_config* res)
         } else if (strcmp(key, "socketname") == 0) {
             DIE_NULL(res->socketname = malloc((strlen(value) + 1) * sizeof(char)), "malloc");
             strcpy(res->socketname, value);
+        } else if (strcmp(key, "replacement_policy") == 0) {
+            if (strcmp(value, "FIFO") == 0) {
+                res->replacement_policy = FIFO_REPLACEMENT;
+            } else if (strcmp(value, "LFU") == 0) {
+                res->replacement_policy = LFU_REPLACEMENT;
+            } else if (strcmp(value, "LRU") == 0) {
+                //res->replacement_policy = LRU_REPLACEMENT;
+                fprintf(stderr, "error: LRU policy is not implemented\n");
+                goto cleanup;
+            }
         }
     }
     destroy_config(config);
@@ -207,14 +218,6 @@ int main(void)
     pthread_t signal_handler_tid;
     DIE_NEG1(pthread_create(&signal_handler_tid, NULL, signal_handler_entry_point, &sig_arg), "pthread create");
 
-    // create the file storage
-    DIE_NULL(file_storage = create_file_storage(FIFO_POLICY), "create_file_storage");
-
-    // create the logger thread
-    pthread_t logger_tid;
-    DIE_NEG1(pthread_create(&logger_tid, NULL, logger_entry_point, logger_buffer), "pthread create");
-    LOG(logger_buffer, "Server startup");
-
     // parse the config file and then log the read values
     struct server_config cfg;
     DIE_NEG1(parse_config(CONFIG_FILENAME, &cfg), "parse_config");
@@ -223,6 +226,15 @@ int main(void)
     LOG(logger_buffer, "Server config: max_storage_size=%ld", cfg.max_storage_size);
     LOG(logger_buffer, "Server config: enable_compression=%d", cfg.enable_compression);
     LOG(logger_buffer, "Server config: socketname=%s", cfg.socketname);
+    LOG(logger_buffer, "Server config: replacement_policy=%d", cfg.replacement_policy);
+
+    // create the file storage
+    DIE_NULL(file_storage = create_file_storage(cfg.replacement_policy), "create_file_storage");
+
+    // create the logger thread
+    pthread_t logger_tid;
+    DIE_NEG1(pthread_create(&logger_tid, NULL, logger_entry_point, logger_buffer), "pthread create");
+    LOG(logger_buffer, "Server startup");
 
     // set up the common argument that will be passed to all the workers
     worker_arg_t* worker_arg = malloc(sizeof(worker_arg_t));
