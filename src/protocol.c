@@ -70,8 +70,6 @@ ssize_t send_packet(int fd, struct packet* packet)
         return -1;
 
     case COMP:
-    case ACK:
-    case CLOSE_CONNECTION:
         write_res = writen(fd, &packet->op, 1);
         return write_res;
 
@@ -119,7 +117,6 @@ ssize_t send_packet(int fd, struct packet* packet)
         }
         return write_res;
 
-    case FILE_SEQUENCE:
     case READ_N_FILES:
         write_res = writen(fd, &packet->op, 1);
         if (write_res <= 0) {
@@ -192,8 +189,6 @@ int receive_packet(int fd, struct packet* res_packet)
         return -1;
 
     case COMP:
-    case ACK:
-    case CLOSE_CONNECTION:
         return read_res;
 
     case ERROR:
@@ -246,7 +241,6 @@ int receive_packet(int fd, struct packet* res_packet)
         }
         return read_res;
 
-    case FILE_SEQUENCE:
     case READ_N_FILES:
         read_res = readn(fd, &res_packet->count, 8);
         return read_res;

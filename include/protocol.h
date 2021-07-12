@@ -11,12 +11,9 @@
 enum opcodes {
     NIL, // <- for representing an invalid packet
     COMP,
-    ACK,
     ERROR,
-    CLOSE_CONNECTION,
     DATA,
     FILE_P,
-    FILE_SEQUENCE,
     OPEN_FILE,
     CLOSE_FILE,
     WRITE_FILE,

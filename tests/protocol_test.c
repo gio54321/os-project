@@ -29,22 +29,6 @@ int main(void)
     assert(receive_packet(fds[0], &recv) > 0);
     assert(recv.op == COMP);
 
-    // TEST ACK
-    clear_packet(&send);
-    clear_packet(&recv);
-    send.op = ACK;
-    assert(send_packet(fds[1], &send) > 0);
-    assert(receive_packet(fds[0], &recv) > 0);
-    assert(recv.op == ACK);
-
-    // TEST CLOSE_CONNECTION
-    clear_packet(&send);
-    clear_packet(&recv);
-    send.op = CLOSE_CONNECTION;
-    assert(send_packet(fds[1], &send) > 0);
-    assert(receive_packet(fds[0], &recv) > 0);
-    assert(recv.op == CLOSE_CONNECTION);
-
     // TEST ERROR
     clear_packet(&send);
     clear_packet(&recv);
@@ -89,16 +73,6 @@ int main(void)
         assert(((char*)recv.data)[i] == dummy_data[i]);
     }
     assert(destroy_packet(&recv) == 0);
-
-    // TEST FILE_SEQUENCE
-    clear_packet(&send);
-    clear_packet(&recv);
-    send.op = FILE_SEQUENCE;
-    send.count = 42;
-    assert(send_packet(fds[1], &send) > 0);
-    assert(receive_packet(fds[0], &recv) > 0);
-    assert(recv.op == FILE_SEQUENCE);
-    assert(recv.count == 42);
 
     // TEST READ_N_FILES
     clear_packet(&send);

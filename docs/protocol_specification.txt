@@ -10,23 +10,11 @@ dependent on the opcode:
     | COMP (1) |
     ------------
 
-- ACK: this is like COMP but is used when the operation is performed
-    across multiple packets. The meaning is that the packet is received, but
-    it is expected more.
-    -----------
-    | ACK (1) |
-    -----------
-
 - ERROR: there has been an error.
     The error is transimtted after the opcode and it is 1 byte long (interpreted as char)
     ----------------------------
     | ERROR (1) | err_code (1) |
     ----------------------------
-
-- CLOSE_CONNECTION: request for closing the connection
-    ------------------------
-    | CLOSE_CONNECTION (1) |
-    ------------------------
 
 - DATA: the packet contains some binary data
     The first 8 bytes (interpreted as an unsigned long) are the data size.
@@ -44,13 +32,6 @@ dependent on the opcode:
     --------------------------------------------------------------------------------------------
     | FILE_P (1) | name_length (8) | filename (name_length) | data_size (8) | data (data_size) |
     --------------------------------------------------------------------------------------------
-
-- FILE_SEQUENCE: this packet indicates that will be sent multiple files as separate packets
-    The first 8 bytes (interpreted as a signed long) indicates how many files
-    will be sent.
-    ---------------------------------
-    | FILE_SEQUENCE (1) | count (8) |
-    ---------------------------------
 
 - OPEN_FILE: the packet contains a request of file creation
     The first 8 bytes (interpreted as an unsigned long) are the filename size.
@@ -100,9 +81,9 @@ dependent on the opcode:
     *not null terminated* sequence of characters
     Then 8 bytes (interpreted as an unsigned long) are the data size.
     Then data_size bytes represent the actual data contained in the file.
-    ------------------------------------------------------------------------------------------------
-    | WRITE_FILE (1) | name_length (8) | filename (name_length) | data_size (8) | data (data_size) |
-    ------------------------------------------------------------------------------------------------
+    ----------------------------------------------------------------------------------------------------
+    | APPEND_TO_FILE (1) | name_length (8) | filename (name_length) | data_size (8) | data (data_size) |
+    ----------------------------------------------------------------------------------------------------
 
 - LOCK_FILE: the packet contains a request to lock a file
     The first 8 bytes (interpreted as an unsigned long) are the filename size.
