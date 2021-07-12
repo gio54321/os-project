@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
@@ -48,7 +49,10 @@ extern bool FILE_STORAGE_API_PRINTS_ENABLED;
                 exit(EXIT_FAILURE);                    \
             }                                          \
         }                                              \
-        usleep(request_interval * 1000);               \
+        struct timespec t;                             \
+        t.tv_sec = 0;                                  \
+        t.tv_nsec = request_interval * 1E6;            \
+        nanosleep(&t, NULL);                           \
     } while (0)
 
 static void print_help(char* program_name)

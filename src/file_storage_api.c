@@ -1,8 +1,11 @@
+#define _POSIX_C_SOURCE 200809L
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
@@ -76,7 +79,10 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
     int connect_res = connect(socket_fd, (struct sockaddr*)&sa, sizeof(struct sockaddr_un));
     if (connect_res == -1) {
         // wait msec milliseconds
-        usleep(msec * 1000);
+        struct timespec t;
+        t.tv_sec = 0;
+        t.tv_nsec = msec * 1E6;
+        nanosleep(&t, NULL);
         time_t curr_time = time(NULL);
         while (curr_time <= abstime.tv_sec) {
             PRINT_IF_EN("Connection to %s failed, retrying to connect...\n", sockname);
@@ -86,7 +92,10 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
             }
 
             // wait msec milliseconds and the recalculate current time
-            usleep(msec * 1000);
+            struct timespec t;
+            t.tv_sec = 0;
+            t.tv_nsec = msec * 1E6;
+            nanosleep(&t, NULL);
             curr_time = time(NULL);
         }
         // it the function did not return earlier, then the

@@ -6,6 +6,7 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
+#include <stdint.h>
 #include <stdlib.h>
 
 enum opcodes {
@@ -44,9 +45,9 @@ enum flags {
 struct packet {
     char op;
     char err_code;
-    u_int64_t name_length;
+    uint64_t name_length;
     char* filename;
-    u_int64_t data_size;
+    uint64_t data_size;
     void* data;
     char flags;
     int64_t count;

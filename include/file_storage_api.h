@@ -2,6 +2,7 @@
 #define FILE_STORAGE_API_H
 
 #include <stdlib.h>
+#include <time.h>
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime);
 int closeConnection(const char* sockname);
