@@ -229,7 +229,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             bool completed = false;
             vfile_t* file_to_open = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_open == NULL) {
-                if (errno = ENOENT) {
+                if (errno == ENOENT) {
                     // file does not exists in the storage
                     // if the flag O_CREATE is set then create the file, else send
                     // an error to the client
@@ -292,7 +292,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             LOG(logger_buffer, "[W:%02d] [C:%02d] [read] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_read = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_read == NULL) {
-                if (errno = ENOENT) {
+                if (errno == ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [read] ERROR FILE_DOES_NOT_EXIST", num_worker, client_fd);
                     send_error(client_fd, FILE_DOES_NOT_EXIST);
@@ -357,7 +357,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             LOG(logger_buffer, "[W:%02d] [C:%02d] [write] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_write = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_write == NULL) {
-                if (errno = ENOENT) {
+                if (errno == ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_DOES_NOT_EXIST", num_worker, client_fd);
                     send_error(client_fd, FILE_DOES_NOT_EXIST);
@@ -418,7 +418,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             LOG(logger_buffer, "[W:%02d] [C:%02d] [append] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_append = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_append == NULL) {
-                if (errno = ENOENT) {
+                if (errno == ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [append] ERROR FILE_DOES_NOT_EXIST", num_worker, client_fd);
                     send_error(client_fd, FILE_DOES_NOT_EXIST);
@@ -472,7 +472,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_lock = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_lock == NULL) {
-                if (errno = ENOENT) {
+                if (errno == ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] ERROR FILE_DOES_NOT_EXIST", num_worker, client_fd);
                     send_error(client_fd, FILE_DOES_NOT_EXIST);
@@ -513,7 +513,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             fflush(stdout);
             vfile_t* file_to_unlock = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_unlock == NULL) {
-                if (errno = ENOENT) {
+                if (errno == ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] ERROR FILE_DOES_NOT_EXIST", num_worker, client_fd);
                     send_error(client_fd, FILE_DOES_NOT_EXIST);
@@ -539,7 +539,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             LOG(logger_buffer, "[W:%02d] [C:%02d] [close] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_close = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_close == NULL) {
-                if (errno = ENOENT) {
+                if (errno == ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [close] ERROR FILE_DOES_NOT_EXIST", num_worker, client_fd);
                     send_error(client_fd, FILE_DOES_NOT_EXIST);
@@ -575,7 +575,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
             LOG(logger_buffer, "[W:%02d] [C:%02d] [remove] REQUEST {file:%s}", num_worker, client_fd, client_packet.filename);
             vfile_t* file_to_remove = get_file_from_name(file_storage, client_packet.name_length, client_packet.filename);
             if (file_to_remove == NULL) {
-                if (errno = ENOENT) {
+                if (errno == ENOENT) {
                     // file does not exists in the storage
                     LOG(logger_buffer, "[W:%02d] [C:%02d] [remove] ERROR FILE_DOES_NOT_EXIST", num_worker, client_fd);
                     send_error(client_fd, FILE_DOES_NOT_EXIST);
