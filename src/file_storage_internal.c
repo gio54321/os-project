@@ -301,7 +301,7 @@ vfile_t* get_file_from_name(file_storage_t* storage, size_t filename_len, const 
  * This is safe to use even when the mutual exclusion of the entire storage
  * is acquired in read mode, because it uses an internal lock 
 */
-int atomic_increment_used_counter(vfile_t* vfile)
+int atomic_update_replacement_info(vfile_t* vfile)
 {
     if (vfile == NULL) {
         errno = EINVAL;
