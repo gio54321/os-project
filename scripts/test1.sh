@@ -23,3 +23,5 @@ valgrind --leak-check=full ./bin/client -p -f ./LSOfilestorage.sk \
 sleep 1
 
 kill -s HUP %1
+
+wait %1
