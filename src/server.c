@@ -139,9 +139,7 @@ int parse_config(const char* config_filename, struct server_config* res)
             } else if (strcmp(value, "LFU") == 0) {
                 res->replacement_policy = LFU_REPLACEMENT;
             } else if (strcmp(value, "LRU") == 0) {
-                //res->replacement_policy = LRU_REPLACEMENT;
-                fprintf(stderr, "error: LRU policy is not implemented\n");
-                goto cleanup;
+                res->replacement_policy = LRU_REPLACEMENT;
             }
         }
     }

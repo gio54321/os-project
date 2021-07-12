@@ -94,6 +94,7 @@ vfile_t* create_vfile()
     vfile->lock_queue_max = 0;
     vfile->data = NULL;
     vfile->used_counter = 0;
+    vfile->last_used = time(NULL);
 
     if (pthread_mutex_init(&vfile->replacement_mutex, NULL) == -1) {
         return NULL;
@@ -219,6 +220,7 @@ vfile_t* choose_victim_file(file_storage_t* storage, vfile_t* file_to_exclude)
         return NULL;
     }
 
+    vfile_t* min_file;
     switch (storage->replacement_policy) {
     case FIFO_REPLACEMENT:
         // for the FIFO policy it is trivial to choose the victim file: it is
@@ -233,8 +235,6 @@ vfile_t* choose_victim_file(file_storage_t* storage, vfile_t* file_to_exclude)
         // for the LFU policy we need to calculate the file that has the
         // minimum value for used_counter. If there are multiple files that have
         // an equal value of used_counter, then return one of them
-        ;
-        vfile_t* min_file;
         if (file_to_exclude != NULL && storage->first == file_to_exclude) {
             min_file = storage->first->next;
         } else {
@@ -249,9 +249,24 @@ vfile_t* choose_victim_file(file_storage_t* storage, vfile_t* file_to_exclude)
 
         return min_file;
     case LRU_REPLACEMENT:
+        // for the LRU policy we need to calculate the file that has the
+        // minimum value for last_used. If there are multiple files that have
+        // an equal value of last_used, then return one of them
+        if (file_to_exclude != NULL && storage->first == file_to_exclude) {
+            min_file = storage->first->next;
+        } else {
+            min_file = storage->first;
+        }
+
+        for (vfile_t* curr_file = min_file; curr_file != NULL; curr_file = curr_file->next) {
+            if (curr_file != file_to_exclude && curr_file->last_used < min_file->last_used) {
+                min_file = curr_file;
+            }
+        }
+
+        return min_file;
     default:
-        // LRU is not implemented
-        fprintf(stderr, "not implemented\n");
+        fprintf(stderr, "error: replacmenent policy code is not valid\n");
         break;
     }
     return NULL;
@@ -299,6 +314,7 @@ int atomic_increment_used_counter(vfile_t* vfile)
     }
 
     ++vfile->used_counter;
+    vfile->last_used = time(NULL);
 
     int unlock_res = pthread_mutex_unlock(&vfile->replacement_mutex);
     if (unlock_res == -1) {

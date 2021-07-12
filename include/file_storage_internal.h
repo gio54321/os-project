@@ -30,6 +30,7 @@ typedef struct vfile {
     // metadata for LFU replacement algorithm
     pthread_mutex_t replacement_mutex;
     unsigned int used_counter;
+    time_t last_used;
 
     // actual data
     void* data;
