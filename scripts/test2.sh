@@ -6,7 +6,7 @@ max_num_files=10
 max_storage_size=1000000
 enable_compression=0
 socketname=./LSOfilestorage.sk
-replacement_policy=LFU" > config.txt
+replacement_policy=LRU" > config.txt
 
 # clean the output folder
 rm -rf test_out/
