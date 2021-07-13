@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include "file_storage_internal.h"
-#include "int_queue.h"
 
 /*
  * Creates an empty file storage with given replacement policy.

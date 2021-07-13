@@ -6,7 +6,6 @@
 #include <sys/select.h>
 #include <unistd.h>
 
-#include "int_queue.h"
 #include "rw_lock.h"
 
 enum file_replacement_policy {
