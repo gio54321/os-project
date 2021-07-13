@@ -8,7 +8,7 @@
 
 #include "configparser.h"
 
-#define INITIAL_BUF_LEN 3
+#define INITIAL_BUF_LEN 128
 
 struct config_entry {
     char* key;
