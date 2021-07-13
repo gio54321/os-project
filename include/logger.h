@@ -18,7 +18,7 @@ void* logger_entry_point(void* arg);
 #define LOG(log_buf, ...)                                         \
     {                                                             \
         char* log_str;                                            \
-        DIE_NULL(log_str = malloc(256 * sizeof(char)), "malloc"); \
+        DIE_NULL(log_str = malloc(512 * sizeof(char)), "malloc"); \
         sprintf(log_str, __VA_ARGS__);                            \
         usbuf_put(log_buf, log_str);                              \
     }
