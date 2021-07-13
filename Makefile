@@ -23,6 +23,8 @@ RUNCTESTS = $(patsubst %,run_%_ctest,$(CONCURRENT_OBJ))
 
 .PHONY: all tests run-all-tests run-tests run-ctests clean test1 test2 test3 mkbindir
 
+all: mkbindir $(OBJ) $(BINDIR)/server $(OBJDIR)/libfile_storage_api.so $(BINDIR)/client
+
 test1: all
 	./scripts/test1.sh
 
@@ -31,8 +33,6 @@ test2: all
 
 test3: all
 	./scripts/test3.sh
-
-all: mkbindir $(OBJ) $(BINDIR)/server $(OBJDIR)/libfile_storage_api.so $(BINDIR)/client
 
 mkbindir:
 	@[ -d $(BINDIR) ] || mkdir -p $(BINDIR)
