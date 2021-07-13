@@ -8,9 +8,9 @@ CC = gcc
 CFLAGS = -std=c99 -Wall -pedantic -I$(IDIR) -g 
 LIBS = -lpthread
 
-_OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
+_OBJ = configparser unbounded_shared_buffer protocol file_storage_internal\
 	   utils logger thread_pool rw_lock compression server_worker
-TEST_OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
+TEST_OBJ = configparser unbounded_shared_buffer protocol file_storage_internal\
 	   utils logger thread_pool rw_lock compression
 CONCURRENT_OBJ = unbounded_shared_buffer logger thread_pool rw_lock
 
@@ -54,10 +54,7 @@ $(OBJDIR)/unbounded_shared_buffer.o: $(SRCDIR)/unbounded_shared_buffer.c $(IDIR)
 $(OBJDIR)/protocol.o: $(SRCDIR)/protocol.c $(IDIR)/protocol.h $(OBJDIR)/utils.o
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(OBJDIR)/int_queue.o: $(SRCDIR)/int_queue.c $(IDIR)/int_queue.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJDIR)/file_storage_internal.o: $(SRCDIR)/file_storage_internal.c $(IDIR)/file_storage_internal.h $(OBJDIR)/int_queue.o
+$(OBJDIR)/file_storage_internal.o: $(SRCDIR)/file_storage_internal.c $(IDIR)/file_storage_internal.h
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
 $(OBJDIR)/utils.o: $(SRCDIR)/utils.c $(IDIR)/utils.h
