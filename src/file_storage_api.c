@@ -125,7 +125,8 @@ int openFile(const char* pathname, int flags)
         errno = EINVAL;
         return -1;
     }
-    PRINT_IF_EN("open file %s with flag O_CREATE %d and O_LOCK %d\n", pathname, flags & O_CREATE, flags & O_LOCK);
+    PRINT_IF_EN("open file %s with flag O_CREATE %d and O_LOCK %d\n", pathname,
+        (flags & O_CREATE) != 0, (flags & O_LOCK) != 0);
 
     // send the request to the server
     struct packet request;
