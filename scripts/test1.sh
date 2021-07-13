@@ -14,11 +14,11 @@ rm -rf test_out/
 valgrind --leak-check=full ./bin/server &
 
 valgrind --leak-check=full ./bin/client -p -f ./LSOfilestorage.sk \
-    -W test_data/divina.txt,test_data/simple_text.txt -w test_data \
-    -r test_data/divina.txt,test_data/simple_text.txt -R n=0 -D test_out/ejected \
-    -d test_out/read -t 200 -l test_data/divina.txt,test_data/simple_text.txt \
-    -u test_data/divina.txt,test_data/simple_text.txt \
-    -c test_data/divina.txt,test_data/simple_text.txt
+    -W $( realpath test_data/divina.txt),$(realpath test_data/simple_text.txt) -w $( realpath test_data) \
+    -r test_data/divina.txt,test_data/simple_text.txt -R n=0 -D $(realpath .)/test_out/ejected \
+    -d $(realpath .)/test_out/read -t 200 -l $(realpath test_data/divina.txt),$(realpath test_data/simple_text.txt) \
+    -u $(realpath test_data/divina.txt),$(realpath test_data/simple_text.txt) \
+    -c $(realpath test_data/divina.txt),$(realpath test_data/simple_text.txt)
 
 sleep 1
 

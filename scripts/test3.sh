@@ -17,10 +17,10 @@ echo "spawning the server"
 function run_client() {
     while true; do
         ./bin/client -f ./LSOfilestorage.sk \
-            -w test_data -R \
-            -D test_out/ejected -d test_out/read \
-            -l test_data/divina.txt -u test_data/divina.txt \
-            -c test_data/divina.txt
+            -w $(realpath .)/test_data -R \
+            -D $(realpath .)/test_out/ejected -d $(realpath .)/test_out/read \
+            -l $(realpath test_data/divina.txt) -u $(realpath test_data/divina.txt) \
+            -c $(realpath test_data/divina.txt)
     done
 }
 
