@@ -9,7 +9,7 @@ CFLAGS = -std=c99 -Wall -pedantic -I$(IDIR) -g
 LIBS = -lpthread
 
 _OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
-	   utils logger thread_pool rw_lock compression server_worker file_storage_api
+	   utils logger thread_pool rw_lock compression server_worker
 TEST_OBJ = configparser unbounded_shared_buffer protocol int_queue file_storage_internal\
 	   utils logger thread_pool rw_lock compression
 CONCURRENT_OBJ = unbounded_shared_buffer logger thread_pool rw_lock
@@ -32,13 +32,13 @@ test2: all
 test3: all
 	./scripts/test3.sh
 
-all: mkbindir $(OBJ) $(BINDIR)/server $(BINDIR)/client
+all: mkbindir $(OBJ) $(BINDIR)/server $(OBJDIR)/libfile_storage_api.so $(BINDIR)/client
 
 mkbindir:
 	@[ -d $(BINDIR) ] || mkdir -p $(BINDIR)
 
 clean:
-	rm -f $(OBJ) $(TESTS) $(CTESTS)
+	rm -rf $(OBJDIR)/* $(BINDIR)/*
 
 run-all-tests: run-tests run-ctests
 run-tests: tests $(RUNTESTS)
@@ -81,14 +81,17 @@ $(OBJDIR)/server_worker.o: $(SRCDIR)/server_worker.c $(IDIR)/server_worker.h
 $(OBJDIR)/server: $(SRCDIR)/server.c $(OBJ)
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
-$(OBJDIR)/file_storage_api.o: $(SRCDIR)/file_storage_api.c $(IDIR)/file_storage_api.h
-	$(CC) $(CFLAGS) -c $< -o $@
+$(OBJDIR)/libfile_storage_api.so: $(SRCDIR)/file_storage_api.c $(IDIR)/file_storage_api.h
+	$(CC) $(CFLAGS) -c -fPIC $(SRCDIR)/protocol.c -o $(OBJDIR)/protocol_PIC.o
+	$(CC) $(CFLAGS) -c -fPIC $< -o $(OBJDIR)/file_storage_api.o
+	$(CC) -shared $(OBJDIR)/protocol_PIC.o $(OBJDIR)/file_storage_api.o -o $@ 
 
-# TODO separate client objs from server objs
-$(OBJDIR)/client: $(SRCDIR)/client.c $(OBJ)
-	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
+$(OBJDIR)/client: $(SRCDIR)/client.c $(OBJDIR)/libfile_storage_api.so $(OBJDIR)/utils.o
+	$(CC) $(CFLAGS) $^ -o $@ -L $(OBJDIR) -lfile_storage_api
 
-# generic rule for all tests
+
+
+# =============== UNIT TESTS =======================
 $(TESTS): $(BINDIR)/%_test: $(TESTDIR)/%_test.c $(OBJ)
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
