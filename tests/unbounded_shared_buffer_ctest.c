@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -12,10 +13,13 @@ usbuf_t* buf;
 void* producer(void* arg)
 {
     unsigned int rand_state = time(NULL);
-    int t = rand_r(&rand_state);
+    int t_interval = rand_r(&rand_state);
     for (int i = 0; i < num_items; ++i) {
         assert(usbuf_put(buf, &num_items) == 0);
-        usleep(((double)t / RAND_MAX) * 1000);
+        struct timespec t;
+        t.tv_sec = 0;
+        t.tv_nsec = ((double)t_interval / RAND_MAX) * 1E6;
+        nanosleep(&t, NULL);
     }
     return NULL;
 }
@@ -23,7 +27,7 @@ void* producer(void* arg)
 void* consumer(void* arg)
 {
     unsigned int rand_state = time(NULL);
-    int t = rand_r(&rand_state);
+    int t_interval = rand_r(&rand_state);
     for (;;) {
         void* res = NULL;
         int get_res = usbuf_get(buf, &res);
@@ -33,7 +37,10 @@ void* consumer(void* arg)
             break;
         }
         assert(res == &num_items);
-        usleep(((double)t / RAND_MAX) * 1000);
+        struct timespec t;
+        t.tv_sec = 0;
+        t.tv_nsec = ((double)t_interval / RAND_MAX) * 1E6;
+        nanosleep(&t, NULL);
     }
     return NULL;
 }
