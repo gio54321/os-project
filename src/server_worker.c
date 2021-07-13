@@ -584,10 +584,10 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     exit(EXIT_FAILURE);
                 }
             } else {
-                if (file_to_remove->locked_by != -1 && file_to_remove->locked_by != client_fd) {
+                if (file_to_remove->locked_by != client_fd) {
                     // the file is locked by another client
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [remove] ERROR FILE_IS_LOCKED_BY_ANOTHER_CLIENT", num_worker, client_fd);
-                    send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
+                    LOG(logger_buffer, "[W:%02d] [C:%02d] [remove] ERROR FILE_IS_NOT_LOCKED", num_worker, client_fd);
+                    send_error(client_fd, FILE_IS_NOT_LOCKED);
                 } else {
                     if (!FD_ISSET(client_fd, &file_to_remove->opened_by)) {
                         // file is not opened by the client, send error

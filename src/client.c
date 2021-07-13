@@ -331,7 +331,7 @@ static int run_commands(int argc, char* argv[])
             char* strtok_save = NULL;
             char* tok = strtok_r(argv[i], ",", &strtok_save);
             while (tok) {
-                API_CALL(openFile(tok, 0), "openFile");
+                API_CALL(openFile(tok, O_LOCK), "openFile");
                 API_CALL(removeFile(tok), "removeFile");
                 tok = strtok_r(NULL, ",", &strtok_save);
             }
