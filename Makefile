@@ -9,9 +9,9 @@ CFLAGS = -std=c99 -Wall -pedantic -I$(IDIR) -g
 LIBS = -lpthread
 
 _OBJ = configparser unbounded_shared_buffer protocol file_storage_internal\
-	   utils logger thread_pool rw_lock compression server_worker
+	   utils logger thread_pool rw_lock server_worker
 TEST_OBJ = configparser unbounded_shared_buffer protocol file_storage_internal\
-	   utils logger thread_pool rw_lock compression
+	   utils logger thread_pool rw_lock 
 CONCURRENT_OBJ = unbounded_shared_buffer logger thread_pool rw_lock
 
 OBJ = $(patsubst %,$(OBJDIR)/%.o,$(_OBJ))
@@ -68,9 +68,6 @@ $(OBJDIR)/thread_pool.o: $(SRCDIR)/thread_pool.c $(IDIR)/thread_pool.h
 
 $(OBJDIR)/rw_lock.o: $(SRCDIR)/rw_lock.c $(IDIR)/rw_lock.h
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
-
-$(OBJDIR)/compression.o: $(SRCDIR)/compression.c $(IDIR)/compression.h
-	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/server_worker.o: $(SRCDIR)/server_worker.c $(IDIR)/server_worker.h
 	$(CC) $(CFLAGS) -c $< -o $@
