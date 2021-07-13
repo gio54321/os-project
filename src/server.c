@@ -33,7 +33,6 @@ struct server_config {
     long num_workers;
     long max_num_files;
     long max_storage_size;
-    bool enable_compression;
     char* socketname;
     enum file_replacement_policy replacement_policy;
 };
@@ -120,17 +119,6 @@ int parse_config(const char* config_filename, struct server_config* res)
                 goto cleanup;
             }
             res->max_storage_size = n;
-        } else if (strcmp(key, "enable_compression") == 0) {
-            long n;
-            if (string_to_long(value, &n) == -1) {
-                fprintf(stderr, "error: unable to convert %s to a long\n", value);
-                goto cleanup;
-            }
-            if (n != 0 && n != 1) {
-                fprintf(stderr, "error: %s must be either 0 or 1\n", key);
-                goto cleanup;
-            }
-            res->enable_compression = n;
         } else if (strcmp(key, "socketname") == 0) {
             DIE_NULL(res->socketname = malloc((strlen(value) + 1) * sizeof(char)), "malloc");
             strcpy(res->socketname, value);
@@ -223,7 +211,6 @@ int main(void)
     LOG(logger_buffer, "Server config: num_workers=%ld", cfg.num_workers);
     LOG(logger_buffer, "Server config: max_num_files=%ld", cfg.max_num_files);
     LOG(logger_buffer, "Server config: max_storage_size=%ld", cfg.max_storage_size);
-    LOG(logger_buffer, "Server config: enable_compression=%d", cfg.enable_compression);
     LOG(logger_buffer, "Server config: socketname=%s", cfg.socketname);
     LOG(logger_buffer, "Server config: replacement_policy=%d", cfg.replacement_policy);
 
@@ -242,7 +229,6 @@ int main(void)
     worker_arg->logger_buffer = logger_buffer;
     worker_arg->max_num_files = cfg.max_num_files;
     worker_arg->max_storage_size = cfg.max_storage_size;
-    worker_arg->enable_compression = cfg.enable_compression;
     worker_arg->file_storage = file_storage;
 
     // create the workers thread pool

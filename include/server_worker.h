@@ -15,7 +15,6 @@ typedef struct worker_arg_s {
 
     long max_num_files;
     long max_storage_size;
-    bool enable_compression;
 } worker_arg_t;
 
 void* server_worker_entry_point(void* arg);
