@@ -19,7 +19,8 @@ function run_client() {
         ./bin/client -f ./LSOfilestorage.sk \
             -w test_data -R \
             -D test_out/ejected -d test_out/read \
-            -l test_data/divina.txt -u test_data/divina.txt
+            -l test_data/divina.txt -u test_data/divina.txt \
+            -c test_data/divina.txt
     done
 }
 
