@@ -301,22 +301,28 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     exit(EXIT_FAILURE);
                 }
             } else {
-                if (file_to_read->locked_by != -1 && file_to_read->locked_by != client_fd) {
-                    // the file is locked by another client
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [read] ERROR FILE_IS_LOCKED_BY_ANOTHER_CLIENT", num_worker, client_fd);
-                    send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
+                if (!FD_ISSET(client_fd, &file_to_read->opened_by)) {
+                    // file is not opened by the client, send error
+                    LOG(logger_buffer, "[W:%02d] [C:%02d] [read] ERROR FILE_IS_NOT_OPENED", num_worker, client_fd);
+                    send_error(client_fd, FILE_IS_NOT_OPENED);
                 } else {
-                    struct packet response;
-                    clear_packet(&response);
-                    response.op = DATA;
-                    response.data_size = file_to_read->size;
-                    response.data = file_to_read->data;
-                    DIE_NEG_IGN_EPIPE(send_packet(client_fd, &response), "send packet");
+                    if (file_to_read->locked_by != -1 && file_to_read->locked_by != client_fd) {
+                        // the file is locked by another client
+                        LOG(logger_buffer, "[W:%02d] [C:%02d] [read] ERROR FILE_IS_LOCKED_BY_ANOTHER_CLIENT", num_worker, client_fd);
+                        send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
+                    } else {
+                        struct packet response;
+                        clear_packet(&response);
+                        response.op = DATA;
+                        response.data_size = file_to_read->size;
+                        response.data = file_to_read->data;
+                        DIE_NEG_IGN_EPIPE(send_packet(client_fd, &response), "send packet");
 
-                    // increment the used counter
-                    DIE_NEG1(atomic_update_replacement_info(file_to_read), "atomic update replacement info");
+                        // increment the used counter
+                        DIE_NEG1(atomic_update_replacement_info(file_to_read), "atomic update replacement info");
 
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [read] SUCCESS {sent_bytes:%zd}", num_worker, client_fd, file_to_read->size);
+                        LOG(logger_buffer, "[W:%02d] [C:%02d] [read] SUCCESS {sent_bytes:%zd}", num_worker, client_fd, file_to_read->size);
+                    }
                 }
             }
             DIE_NEG1(read_unlock(storage_lock), "read_unlock");
@@ -366,46 +372,52 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     exit(EXIT_FAILURE);
                 }
             } else {
-                if (file_to_write->size != 0) {
-                    // the file has been written already, so the write operation is invalid
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_ALREADY_WRITTEN", num_worker, client_fd);
-                    send_error(client_fd, FILE_WAS_ALREADY_WRITTEN);
+                if (!FD_ISSET(client_fd, &file_to_write->opened_by)) {
+                    // file is not opened by the client, send error
+                    LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_IS_NOT_OPENED", num_worker, client_fd);
+                    send_error(client_fd, FILE_IS_NOT_OPENED);
                 } else {
-                    if (file_to_write->locked_by != client_fd && file_to_write->locked_by != -1) {
-                        // the file is locked by another client
-                        LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_IS_LOCKED_BY_ANOTHER_CLIENT", num_worker, client_fd);
-                        send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
-                    } else if (file_to_write->locked_by == -1) {
-                        // the file is not locked by the client
-                        LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_IS_NOT_LOCKED", num_worker, client_fd);
-                        send_error(client_fd, FILE_IS_NOT_LOCKED);
+                    if (file_to_write->size != 0) {
+                        // the file has been written already, so the write operation is invalid
+                        LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_ALREADY_WRITTEN", num_worker, client_fd);
+                        send_error(client_fd, FILE_WAS_ALREADY_WRITTEN);
                     } else {
-                        if (client_packet.data_size > max_storage_size) {
+                        if (file_to_write->locked_by != client_fd && file_to_write->locked_by != -1) {
                             // the file is locked by another client
-                            LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_IS_TOO_BIG", num_worker, client_fd);
-                            send_error(client_fd, FILE_IS_TOO_BIG);
+                            LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_IS_LOCKED_BY_ANOTHER_CLIENT", num_worker, client_fd);
+                            send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
+                        } else if (file_to_write->locked_by == -1) {
+                            // the file is not locked by the client
+                            LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_IS_NOT_LOCKED", num_worker, client_fd);
+                            send_error(client_fd, FILE_IS_NOT_LOCKED);
                         } else {
-                            // eject files
-                            eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer, NULL, num_worker, "write");
+                            if (client_packet.data_size > max_storage_size) {
+                                // the file is locked by another client
+                                LOG(logger_buffer, "[W:%02d] [C:%02d] [write] ERROR FILE_IS_TOO_BIG", num_worker, client_fd);
+                                send_error(client_fd, FILE_IS_TOO_BIG);
+                            } else {
+                                // eject files
+                                eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer, NULL, num_worker, "write");
 
-                            // write the data to the file
-                            file_to_write->size = client_packet.data_size;
-                            file_to_write->data = client_packet.data;
-                            client_packet.data = NULL;
+                                // write the data to the file
+                                file_to_write->size = client_packet.data_size;
+                                file_to_write->data = client_packet.data;
+                                client_packet.data = NULL;
 
-                            // increment the total storage size
-                            file_storage->total_size += client_packet.data_size;
+                                // increment the total storage size
+                                file_storage->total_size += client_packet.data_size;
 
-                            send_comp(client_fd);
+                                send_comp(client_fd);
 
-                            // increment the used counter
-                            DIE_NEG1(atomic_update_replacement_info(file_to_write), "atomic update replacement info");
+                                // increment the used counter
+                                DIE_NEG1(atomic_update_replacement_info(file_to_write), "atomic update replacement info");
 
-                            LOG(logger_buffer, "[W:%02d] [C:%02d] [write] SUCCESS {written_bytes:%zd}", num_worker, client_fd, client_packet.data_size);
+                                LOG(logger_buffer, "[W:%02d] [C:%02d] [write] SUCCESS {written_bytes:%zd}", num_worker, client_fd, client_packet.data_size);
 
-                            // increment max of total size if needed
-                            if (file_storage->total_size > file_storage->statistics.maximum_size_reached) {
-                                file_storage->statistics.maximum_size_reached = file_storage->total_size;
+                                // increment max of total size if needed
+                                if (file_storage->total_size > file_storage->statistics.maximum_size_reached) {
+                                    file_storage->statistics.maximum_size_reached = file_storage->total_size;
+                                }
                             }
                         }
                     }
@@ -427,39 +439,45 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     exit(EXIT_FAILURE);
                 }
             } else {
-                if (file_to_append->locked_by != client_fd && file_to_append->locked_by != -1) {
-                    // the file is locked by another client
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [append] ERROR FILE_IS_LOCKED_BY_ANOTHER_CLIENT", num_worker, client_fd);
-                    send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
+                if (!FD_ISSET(client_fd, &file_to_append->opened_by)) {
+                    // file is not opened by the client, send error
+                    LOG(logger_buffer, "[W:%02d] [C:%02d] [append] ERROR FILE_IS_NOT_OPENED", num_worker, client_fd);
+                    send_error(client_fd, FILE_IS_NOT_OPENED);
                 } else {
-                    if (client_packet.data_size + file_to_append->size > max_storage_size) {
+                    if (file_to_append->locked_by != client_fd && file_to_append->locked_by != -1) {
                         // the file is locked by another client
-                        LOG(logger_buffer, "[W:%02d] [C:%02d] [append] ERROR FILE_IS_TOO_BIG", num_worker, client_fd);
-                        send_error(client_fd, FILE_IS_TOO_BIG);
+                        LOG(logger_buffer, "[W:%02d] [C:%02d] [append] ERROR FILE_IS_LOCKED_BY_ANOTHER_CLIENT", num_worker, client_fd);
+                        send_error(client_fd, FILE_IS_LOCKED_BY_ANOTHER_CLIENT);
                     } else {
-                        // eject files
-                        eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer, file_to_append, num_worker, "append");
+                        if (client_packet.data_size + file_to_append->size > max_storage_size) {
+                            // the file is locked by another client
+                            LOG(logger_buffer, "[W:%02d] [C:%02d] [append] ERROR FILE_IS_TOO_BIG", num_worker, client_fd);
+                            send_error(client_fd, FILE_IS_TOO_BIG);
+                        } else {
+                            // eject files
+                            eject_files(client_fd, client_packet.data_size, max_storage_size, file_storage, logger_buffer, file_to_append, num_worker, "append");
 
-                        // append the data to the file
-                        size_t offset = file_to_append->size;
-                        file_to_append->size += client_packet.data_size;
-                        DIE_NULL(file_to_append->data = realloc(file_to_append->data, file_to_append->size), "realloc");
-                        void* location_to_write = (char*)file_to_append->data + offset;
-                        memcpy(location_to_write, client_packet.data, client_packet.data_size);
+                            // append the data to the file
+                            size_t offset = file_to_append->size;
+                            file_to_append->size += client_packet.data_size;
+                            DIE_NULL(file_to_append->data = realloc(file_to_append->data, file_to_append->size), "realloc");
+                            void* location_to_write = (char*)file_to_append->data + offset;
+                            memcpy(location_to_write, client_packet.data, client_packet.data_size);
 
-                        // increment the total storage size
-                        file_storage->total_size += client_packet.data_size;
+                            // increment the total storage size
+                            file_storage->total_size += client_packet.data_size;
 
-                        send_comp(client_fd);
+                            send_comp(client_fd);
 
-                        // increment the used counter
-                        DIE_NEG1(atomic_update_replacement_info(file_to_append), "atomic update replacement info");
+                            // increment the used counter
+                            DIE_NEG1(atomic_update_replacement_info(file_to_append), "atomic update replacement info");
 
-                        LOG(logger_buffer, "[W:%02d] [C:%02d] [append] SUCCESS {written_bytes:%zd}", num_worker, client_fd, client_packet.data_size);
+                            LOG(logger_buffer, "[W:%02d] [C:%02d] [append] SUCCESS {written_bytes:%zd}", num_worker, client_fd, client_packet.data_size);
 
-                        // increment max of total size if needed
-                        if (file_storage->total_size > file_storage->statistics.maximum_size_reached) {
-                            file_storage->statistics.maximum_size_reached = file_storage->total_size;
+                            // increment max of total size if needed
+                            if (file_storage->total_size > file_storage->statistics.maximum_size_reached) {
+                                file_storage->statistics.maximum_size_reached = file_storage->total_size;
+                            }
                         }
                     }
                 }
@@ -481,27 +499,33 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     exit(EXIT_FAILURE);
                 }
             } else {
-                if (file_to_lock->locked_by == client_fd) {
-                    // the file has been written already, so the write operation is invalid
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] ERROR FILE_ALREADY_LOCKED", num_worker, client_fd);
-                    send_error(client_fd, FILE_ALREADY_LOCKED);
+                if (!FD_ISSET(client_fd, &file_to_lock->opened_by)) {
+                    // file is not opened by the client, send error
+                    LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] ERROR FILE_IS_NOT_OPENED", num_worker, client_fd);
+                    send_error(client_fd, FILE_IS_NOT_OPENED);
                 } else {
-                    if (file_to_lock->locked_by == -1) {
-                        file_to_lock->locked_by = client_fd;
-                        send_comp(client_fd);
-                        LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] SUCCESS", num_worker, client_fd);
+                    if (file_to_lock->locked_by == client_fd) {
+                        // the file has been written already, so the write operation is invalid
+                        LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] ERROR FILE_ALREADY_LOCKED", num_worker, client_fd);
+                        send_error(client_fd, FILE_ALREADY_LOCKED);
                     } else {
-                        // put the client fd into the lock waiting queue
-                        FD_SET(client_fd, &file_to_lock->lock_queue);
-                        if (client_fd > file_to_lock->lock_queue_max) {
-                            file_to_lock->lock_queue_max = client_fd;
-                        }
-                        LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] INFO client is inserted into the witing queue", num_worker, client_fd);
-                        // NB: do not send comp, the operation does not complete until
-                        // the owner of the lock releases it
+                        if (file_to_lock->locked_by == -1) {
+                            file_to_lock->locked_by = client_fd;
+                            send_comp(client_fd);
+                            LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] SUCCESS", num_worker, client_fd);
+                        } else {
+                            // put the client fd into the lock waiting queue
+                            FD_SET(client_fd, &file_to_lock->lock_queue);
+                            if (client_fd > file_to_lock->lock_queue_max) {
+                                file_to_lock->lock_queue_max = client_fd;
+                            }
+                            LOG(logger_buffer, "[W:%02d] [C:%02d] [lock] INFO client is inserted into the witing queue", num_worker, client_fd);
+                            // NB: do not send comp, the operation does not complete until
+                            // the owner of the lock releases it
 
-                        // increment the used counter
-                        DIE_NEG1(atomic_update_replacement_info(file_to_lock), "atomic update replacement info");
+                            // increment the used counter
+                            DIE_NEG1(atomic_update_replacement_info(file_to_lock), "atomic update replacement info");
+                        }
                     }
                 }
             }
@@ -522,14 +546,20 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                     exit(EXIT_FAILURE);
                 }
             } else {
-                if (file_to_unlock->locked_by != client_fd) {
-                    // the file has been locked by another client,
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] ERROR FILE_IS_NOT_LOCKED", num_worker, client_fd);
-                    send_error(client_fd, FILE_IS_NOT_LOCKED);
+                if (!FD_ISSET(client_fd, &file_to_unlock->opened_by)) {
+                    // file is not opened by the client, send error
+                    LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] ERROR FILE_IS_NOT_OPENED", num_worker, client_fd);
+                    send_error(client_fd, FILE_IS_NOT_OPENED);
                 } else {
-                    send_comp(client_fd);
-                    unlock_file(file_to_unlock, logger_buffer, num_worker, client_fd, "unlock");
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] SUCCESS", num_worker, client_fd);
+                    if (file_to_unlock->locked_by != client_fd) {
+                        // the file has been locked by another client,
+                        LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] ERROR FILE_IS_NOT_LOCKED", num_worker, client_fd);
+                        send_error(client_fd, FILE_IS_NOT_LOCKED);
+                    } else {
+                        send_comp(client_fd);
+                        unlock_file(file_to_unlock, logger_buffer, num_worker, client_fd, "unlock");
+                        LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] SUCCESS", num_worker, client_fd);
+                    }
                 }
             }
             DIE_NEG1(write_unlock(storage_lock), "write_unlock");
@@ -552,7 +582,7 @@ static void server_worker(unsigned int num_worker, worker_arg_t* worker_args)
                 // check if the file is actually opened by the client
                 if (!FD_ISSET(client_fd, &file_to_close->opened_by)) {
                     // file is not opened by the client, send error
-                    LOG(logger_buffer, "[W:%02d] [C:%02d] [unlock] ERROR FILE_IS_NOT_OPENED", num_worker, client_fd);
+                    LOG(logger_buffer, "[W:%02d] [C:%02d] [close] ERROR FILE_IS_NOT_OPENED", num_worker, client_fd);
                     send_error(client_fd, FILE_IS_NOT_OPENED);
                 } else {
                     // remove the client from the file's open set
